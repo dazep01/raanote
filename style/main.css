@@ -458,3 +458,5 @@ body {
 .toast.warning {
     border-left: 4px solid var(--warning);
 }
+
+i { color: #ffecd4; }
