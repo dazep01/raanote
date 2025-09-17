@@ -96,8 +96,8 @@ class NovelWriterApp {
                 projectElement.innerHTML = `
                     <div class="text-truncate">${project.title}</div>
                     <div class="project-actions">
-                        <button class="btn-icon edit-project" data-id="${project.id}">✏️</button>
-                        <button class="btn-icon delete-project" data-id="${project.id}">🗑️</button>
+                        <button class="btn-icon edit-project" data-id="${project.id}"><i class="fas fa-pen"></i></button>
+                        <button class="btn-icon delete-project" data-id="${project.id}"><i class="fas fa-trash"></i></button>
                     </div>
                 `;
                 
