@@ -325,20 +325,20 @@ async deleteChapter(chapterId) {
         modal.classList.add('active');
     }
 
-    // Show export modal
-    showExportModal() {
-        if (!this.currentProject) {
-            this.showToast('Pilih project terlebih dahulu', 'warning');
-            return;
-        }
-        
-        const modal = document.getElementById('export-modal');
-        // project object di kode lain nampak menggunakan .name
-        document.getElementById('export-title').value = this.currentProject.name || '';
-        document.getElementById('export-author').value = this.currentProject.author || '';
-        
-        modal.classList.add('active');
+// Show export modal
+showExportModal() {
+    if (!this.currentProject) {
+        this.showToast('Pilih project terlebih dahulu', 'warning');
+        return;
     }
+    
+    const modal = document.getElementById('export-modal');
+    // gunakan .title agar konsisten dengan penyimpanan project
+    document.getElementById('export-title').value = this.currentProject.title || '';
+    document.getElementById('export-author').value = this.currentProject.author || '';
+    
+    modal.classList.add('active');
+}
 
     // Hide modal
     hideModal(modalId) {
@@ -407,31 +407,30 @@ async deleteChapter(chapterId) {
         }
     }
 
-    // Handle export form submission
-    async handleExportSubmit(e) {
-        e.preventDefault();
+// Handle export form submission
+async handleExportSubmit(e) {
+    e.preventDefault();
+    
+    if (!this.currentProject) return;
+    
+    try {
+        const formData = new FormData(e.target);
+        const options = {
+            title: formData.get('title') || this.currentProject.title || '',
+            author: formData.get('author') || this.currentProject.author || 'Anonim',
+            // parse jadi number untuk dipakai di jsPDF
+            fontSize: parseInt(formData.get('font-size'), 10) || 14,
+            fontFamily: formData.get('font-family') || 'serif'
+        };
         
-        if (!this.currentProject) return;
+        await this.exportToPDF(options);
+        this.hideModal('export-modal');
         
-        try {
-            const formData = new FormData(e.target);
-            const options = {
-                title: formData.get('title') || this.currentProject.name || '',
-                author: formData.get('author') || this.currentProject.author || 'Anonim',
-                // parse jadi number untuk dipakai di jsPDF
-                fontSize: parseInt(formData.get('font-size'), 10) || 14,
-                fontFamily: formData.get('font-family') || 'serif'
-            };
-            
-            await this.exportToPDF(options);
-            this.hideModal('export-modal');
-            
-        } catch (error) {
-            console.error('Failed to export PDF:', error);
-            this.showToast('Gagal mengekspor PDF', 'error');
-        }
+    } catch (error) {
+        console.error('Failed to export PDF:', error);
+        this.showToast('Gagal mengekspor PDF', 'error');
     }
-
+}
     // Delete project
     async deleteProject(projectId) {
         if (!confirm('Hapus project ini? Semua bab akan dihapus.')) return;
@@ -457,36 +456,39 @@ async deleteChapter(chapterId) {
     }
 
     // Export to PDF (awal fungsi - gunakan konstruktor jsPDF yang aman)
-    async exportToPDF(options) {
-        if (!this.currentProject) return;
+async exportToPDF(options) {
+    if (!this.currentProject) return;
 
-        try {
-            // pastikan kita dapat konstruktor jsPDF dari global object
-            const PdfCtor = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
-            if (!PdfCtor) throw new Error('jsPDF tidak ditemukan. Pastikan library jsPDF dimuat sebelum scripts/main.js');
+    try {
+        // Ambil project dan chapters dulu (sebelumnya hilang)
+        const project = this.currentProject;
+        const chapters = await novelDB.getChaptersByProject(project.id);
 
-            const pdf = new PdfCtor({
-                unit: 'pt',
-                format: 'a4'
-            });
+        // pastikan kita dapat konstruktor jsPDF dari global object
+        const PdfCtor = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
+        if (!PdfCtor) throw new Error('jsPDF tidak ditemukan. Pastikan library jsPDF dimuat sebelum scripts/main.js');
 
-            // Gunakan angka dari options.fontSize untuk variasi ukuran font bila perlu
-            // Contoh: judul lebih besar dari isi
-            const baseFont = Number(options.fontSize) || 14;
+        const pdf = new PdfCtor({
+            unit: 'pt',
+            format: 'a4'
+        });
 
-            // Set metadata
-            pdf.setProperties({
-                title: options.title || this.currentProject.name,
-                author: options.author || 'Unknown',
-                creator: 'RaaNote'
-            });
+        // Gunakan angka dari options.fontSize untuk variasi ukuran font bila perlu
+        const baseFont = Number(options.fontSize) || 14;
 
-            // === 3. Halaman Judul ===
-            pdf.setFontSize(baseFont + 10); // judul lebih besar
-            pdf.text(options.title || this.currentProject.name, 300, 200, { align: 'center' });
+        // Set metadata
+        pdf.setProperties({
+            title: options.title || project.title,
+            author: options.author || 'Unknown',
+            creator: 'RaaNote'
+        });
 
-            pdf.setFontSize(baseFont + 2);
-            pdf.text(`Oleh: ${options.author || 'Anonim'}`, 300, 230, { align: 'center' });
+        // === 3. Halaman Judul ===
+        pdf.setFontSize(baseFont + 10); // judul lebih besar
+        pdf.text(options.title || project.title, 300, 200, { align: 'center' });
+
+        pdf.setFontSize(baseFont + 2);
+        pdf.text(`Oleh: ${options.author || 'Anonim'}`, 300, 230, { align: 'center' });
 
         // Tambah halaman untuk Daftar Isi
         pdf.addPage();
@@ -548,7 +550,7 @@ async deleteChapter(chapterId) {
         });
 
         // === 6. Simpan PDF ===
-        pdf.save(`${options.title || project.name}.pdf`);
+        pdf.save(`${options.title || project.title}.pdf`);
         this.showToast('PDF berhasil diekspor', 'success');
 
     } catch (error) {
