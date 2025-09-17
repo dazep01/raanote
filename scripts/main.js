@@ -170,21 +170,23 @@ class NovelWriterApp {
                 return;
             }
             
-            chapters.forEach(chapter => {
-                const chapterElement = document.createElement('div');
-                chapterElement.className = 'chapter-item';
-                chapterElement.innerHTML = `
-                    <div class="text-truncate">${chapter.title}</div>
-                `;
-
-                chapterElement.setAttribute('data-id', chapter.id);
-                
-                chapterElement.addEventListener('click', () => {
-                    this.loadChapter(chapter.id);
-                });
-                
-                chaptersList.appendChild(chapterElement);
-            });
+chapters.forEach(chapter => {
+    const chapterElement = document.createElement('div');
+    chapterElement.className = 'chapter-item';
+    chapterElement.innerHTML = `
+        <div class="text-truncate">${chapter.title}</div>
+        <button class="btn-icon delete-chapter" title="Hapus" data-id="${chapter.id}"><i class="fas fa-trash"></i></button>
+    `;
+    chapterElement.addEventListener('click', () => {
+        this.loadChapter(chapter.id);
+    });
+    // Tambahkan listener hapus
+    chapterElement.querySelector('.delete-chapter').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.deleteChapter(chapter.id);
+    });
+    chaptersList.appendChild(chapterElement);
+});
             
         } catch (error) {
             console.error('Failed to load chapters:', error);
@@ -216,6 +218,23 @@ if (activeChapter) activeChapter.classList.add('active');
             this.showToast('Gagal memuat bab', 'error');
         }
     }
+
+async deleteChapter(chapterId) {
+    if (!confirm('Hapus bab ini?')) return;
+    try {
+        await novelDB.deleteChapter(chapterId);
+        // Jika bab yang dihapus adalah yang sedang aktif, kosongkan editor
+        if (this.currentChapter && this.currentChapter.id === chapterId) {
+            this.currentChapter = null;
+            document.getElementById('editor').innerHTML = '';
+        }
+        await this.loadChapters();
+        this.showToast('Bab dihapus', 'success');
+    } catch (error) {
+        console.error('Failed to delete chapter:', error);
+        this.showToast('Gagal menghapus bab', 'error');
+    }
+}
 
     // Save current chapter
     async saveChapter() {
