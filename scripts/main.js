@@ -333,7 +333,8 @@ async deleteChapter(chapterId) {
         }
         
         const modal = document.getElementById('export-modal');
-        document.getElementById('export-title').value = this.currentProject.title;
+        // project object di kode lain nampak menggunakan .name
+        document.getElementById('export-title').value = this.currentProject.name || '';
         document.getElementById('export-author').value = this.currentProject.author || '';
         
         modal.classList.add('active');
@@ -415,10 +416,11 @@ async deleteChapter(chapterId) {
         try {
             const formData = new FormData(e.target);
             const options = {
-                title: formData.get('title'),
-                author: formData.get('author'),
-                fontSize: formData.get('font-size'),
-                fontFamily: formData.get('font-family')
+                title: formData.get('title') || this.currentProject.name || '',
+                author: formData.get('author') || this.currentProject.author || 'Anonim',
+                // parse jadi number untuk dipakai di jsPDF
+                fontSize: parseInt(formData.get('font-size'), 10) || 14,
+                fontFamily: formData.get('font-family') || 'serif'
             };
             
             await this.exportToPDF(options);
@@ -454,35 +456,37 @@ async deleteChapter(chapterId) {
         }
     }
 
-    // Export to PDF
-// Export to PDF
-async exportToPDF(options) {
-    if (!this.currentProject) return;
+    // Export to PDF (awal fungsi - gunakan konstruktor jsPDF yang aman)
+    async exportToPDF(options) {
+        if (!this.currentProject) return;
 
-    try {
-        // === 1. Ambil data project & bab ===
-        const project = this.currentProject;
-        const chapters = await novelDB.getChaptersByProject(project.id);
+        try {
+            // pastikan kita dapat konstruktor jsPDF dari global object
+            const PdfCtor = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
+            if (!PdfCtor) throw new Error('jsPDF tidak ditemukan. Pastikan library jsPDF dimuat sebelum scripts/main.js');
 
-        // === 2. Buat dokumen PDF baru ===
-        const pdf = new jspdf.jsPDF({
-            unit: 'pt', // pakai point biar presisi
-            format: 'a4'
-        });
+            const pdf = new PdfCtor({
+                unit: 'pt',
+                format: 'a4'
+            });
 
-        // Set metadata
-        pdf.setProperties({
-            title: options.title || project.name,
-            author: options.author || 'Unknown',
-            creator: 'RaaNote'
-        });
+            // Gunakan angka dari options.fontSize untuk variasi ukuran font bila perlu
+            // Contoh: judul lebih besar dari isi
+            const baseFont = Number(options.fontSize) || 14;
 
-        // === 3. Halaman Judul ===
-        pdf.setFontSize(24);
-        pdf.text(options.title || project.name, 300, 200, { align: 'center' });
+            // Set metadata
+            pdf.setProperties({
+                title: options.title || this.currentProject.name,
+                author: options.author || 'Unknown',
+                creator: 'RaaNote'
+            });
 
-        pdf.setFontSize(16);
-        pdf.text(`Oleh: ${options.author || 'Anonim'}`, 300, 230, { align: 'center' });
+            // === 3. Halaman Judul ===
+            pdf.setFontSize(baseFont + 10); // judul lebih besar
+            pdf.text(options.title || this.currentProject.name, 300, 200, { align: 'center' });
+
+            pdf.setFontSize(baseFont + 2);
+            pdf.text(`Oleh: ${options.author || 'Anonim'}`, 300, 230, { align: 'center' });
 
         // Tambah halaman untuk Daftar Isi
         pdf.addPage();
