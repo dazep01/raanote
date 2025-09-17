@@ -200,13 +200,11 @@ class NovelWriterApp {
                 item.classList.remove('active');
             });
             
-            // Temukan semua chapter-item
-document.querySelectorAll('.chapter-item').forEach(item => {
-    // Jika judul bab cocok, tandai sebagai aktif
-    if (item.textContent.trim() === this.currentChapter.title) {
-        item.classList.add('active');
-    }
+   document.querySelectorAll('.chapter-item').forEach(item => {
+    item.classList.remove('active');
 });
+const activeChapter = document.querySelector(`.chapter-item[data-id="${chapterId}"]`);
+if (activeChapter) activeChapter.classList.add('active');
             
             document.getElementById('editor').innerHTML = this.currentChapter.content || '';
             this.updateWordCount();
