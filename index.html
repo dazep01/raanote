@@ -85,15 +85,15 @@
                 <form id="project-form">
                     <div class="form-group">
                         <label for="project-title">Judul Project</label>
-                        <input type="text" id="project-title" required>
+                        <input type="text" id="project-title" name="title" required>
                     </div>
                     <div class="form-group">
                         <label for="project-author">Penulis</label>
-                        <input type="text" id="project-author">
+                        <input type="text" id="project-author" name="author">
                     </div>
                     <div class="form-group">
                         <label for="project-genre">Genre</label>
-                        <input type="text" id="project-genre">
+                        <input type="text" id="project-genre" name="genre">
                     </div>
                     <div class="form-actions">
                         <button type="button" id="cancel-project-btn" class="btn-secondary">Batal</button>
@@ -109,11 +109,11 @@
                 <form id="chapter-form">
                     <div class="form-group">
                         <label for="chapter-title">Judul Bab</label>
-                        <input type="text" id="chapter-title" required>
+                        <input type="text" id="chapter-title" name="title" required>
                     </div>
                     <div class="form-group">
                         <label for="chapter-summary">Ringkasan (opsional)</label>
-                        <textarea id="chapter-summary" rows="3"></textarea>
+                        <textarea id="chapter-summary" name="summary" rows="3"></textarea>
                     </div>
                     <div class="form-actions">
                         <button type="button" id="cancel-chapter-btn" class="btn-secondary">Batal</button>
