@@ -121,40 +121,41 @@
             </div>
         </div>
 
-        <div id="export-modal" class="modal">
-            <div class="modal-content">
-                <h2>Ekspor ke PDF</h2>
-                <form id="export-form">
-                    <div class="form-group">
-                        <label for="export-title">Judul</label>
-                        <input type="text" id="export-title">
-                    </div>
-                    <div class="form-group">
-                        <label for="export-author">Penulis</label>
-                        <input type="text" id="export-author">
-                    </div>
-                    <div class="form-group">
-                        <label for="font-size">Ukuran Font</label>
-                        <select id="font-size">
-                            <option value="12pt">Kecil (12pt)</option>
-                            <option value="14pt" selected>Normal (14pt)</option>
-                            <option value="16pt">Besar (16pt)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="font-family">Jenis Font</label>
-                        <select id="font-family">
-                            <option value="serif">Serif (Source Serif Pro)</option>
-                            <option value="sans-serif">Sans-serif (Inter)</option>
-                        </select>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" id="cancel-export-btn" class="btn-secondary">Batal</button>
-                        <button type="submit" class="btn-primary">Ekspor</button>
-                    </div>
-                </form>
+<div id="export-modal" class="modal">
+    <div class="modal-content">
+        <h2>Ekspor ke PDF</h2>
+        <form id="export-form">
+            <div class="form-group">
+                <label for="export-title">Judul</label>
+                <input type="text" id="export-title" name="title">
             </div>
-        </div>
+            <div class="form-group">
+                <label for="export-author">Penulis</label>
+                <input type="text" id="export-author" name="author">
+            </div>
+            <div class="form-group">
+                <label for="font-size">Ukuran Font</label>
+                <!-- gunakan nilai numeric agar mudah diparse -->
+                <select id="font-size" name="font-size">
+                    <option value="12">Kecil (12pt)</option>
+                    <option value="14" selected>Normal (14pt)</option>
+                    <option value="16">Besar (16pt)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="font-family">Jenis Font</label>
+                <select id="font-family" name="font-family">
+                    <option value="serif">Serif (Source Serif Pro)</option>
+                    <option value="sans-serif">Sans-serif (Inter)</option>
+                </select>
+            </div>
+            <div class="form-actions">
+                <button type="button" id="cancel-export-btn" class="btn-secondary">Batal</button>
+                <button type="submit" class="btn-primary">Ekspor</button>
+            </div>
+        </form>
+    </div>
+</div>
     </div>
 
     <script src="lib/libs.js"></script>
