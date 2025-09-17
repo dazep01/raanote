@@ -460,3 +460,18 @@ body {
 }
 
 i { color: #ffecd4; }
+
+.chapters-sidebar.collapsed {
+    width: 50px;
+    min-width: 50px;
+    transition: var(--transition);
+}
+
+.chapters-sidebar.collapsed .chapters-header h3,
+.chapters-sidebar.collapsed #chapters-list {
+    display: none;
+}
+
+.chapters-sidebar.collapsed .btn-icon {
+    margin-left: 0;
+}
