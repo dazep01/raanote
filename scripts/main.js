@@ -638,7 +638,6 @@ const icon = document.getElementById('toggle-chapters-icon');
 
 toggleBtn.addEventListener('click', () => {
     chaptersSidebar.classList.toggle('collapsed');
-    // Ganti icon
     if (chaptersSidebar.classList.contains('collapsed')) {
         icon.classList.remove('fa-chevron-left');
         icon.classList.add('fa-chevron-right');
