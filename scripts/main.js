@@ -176,6 +176,8 @@ class NovelWriterApp {
                 chapterElement.innerHTML = `
                     <div class="text-truncate">${chapter.title}</div>
                 `;
+
+                chapterElement.setAttribute('data-id', chapter.id);
                 
                 chapterElement.addEventListener('click', () => {
                     this.loadChapter(chapter.id);
