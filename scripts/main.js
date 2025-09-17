@@ -632,6 +632,22 @@ async deleteChapter(chapterId) {
     }
 }
 
+const chaptersSidebar = document.querySelector('.chapters-sidebar');
+const toggleBtn = document.getElementById('toggle-chapters');
+const icon = document.getElementById('toggle-chapters-icon');
+
+toggleBtn.addEventListener('click', () => {
+    chaptersSidebar.classList.toggle('collapsed');
+    // Ganti icon
+    if (chaptersSidebar.classList.contains('collapsed')) {
+        icon.classList.remove('fa-chevron-left');
+        icon.classList.add('fa-chevron-right');
+    } else {
+        icon.classList.remove('fa-chevron-right');
+        icon.classList.add('fa-chevron-left');
+    }
+});
+
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new NovelWriterApp();
