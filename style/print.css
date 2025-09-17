@@ -1,0 +1,124 @@
+/* Print Styles for PDF Export */
+@media print {
+    @page {
+        margin: 2cm;
+        size: A5;
+    }
+
+    body {
+        font-family: 'Source Serif Pro', serif;
+        font-size: 14pt;
+        line-height: 1.6;
+        color: #000;
+        background: white;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Inter', sans-serif;
+        page-break-after: avoid;
+    }
+
+    h1 {
+        font-size: 24pt;
+        margin-top: 3cm;
+        text-align: center;
+    }
+
+    h2 {
+        font-size: 18pt;
+        margin-top: 2cm;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 0.25cm;
+    }
+
+    h3 {
+        font-size: 16pt;
+        margin-top: 1.5cm;
+    }
+
+    p {
+        margin-bottom: 0.5cm;
+        text-align: justify;
+        hyphens: auto;
+    }
+
+    .chapter {
+        page-break-before: always;
+    }
+
+    .chapter:first-child {
+        page-break-before: avoid;
+    }
+
+    /* Avoid breaking inside paragraphs and headings */
+    p, h1, h2, h3, h4, h5, h6 {
+        page-break-inside: avoid;
+    }
+
+    /* Allow breaking within content sections when necessary */
+    .content {
+        page-break-inside: auto;
+    }
+
+    /* Footer with page numbers */
+    @page {
+        @bottom-center {
+            content: counter(page);
+            font-family: 'Inter', sans-serif;
+            font-size: 10pt;
+        }
+    }
+
+    /* Title page styling */
+    .title-page {
+        page-break-after: always;
+        text-align: center;
+    }
+
+    .book-title {
+        font-size: 28pt;
+        margin-top: 6cm;
+        margin-bottom: 1cm;
+    }
+
+    .book-author {
+        font-size: 18pt;
+        font-style: italic;
+    }
+
+    /* Table of contents */
+    .toc {
+        page-break-before: always;
+        page-break-after: always;
+    }
+
+    .toc-item {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .toc-item a {
+        text-decoration: none;
+        color: #000;
+    }
+
+    .toc-item .page-number:before {
+        content: target-counter(attr(href), page);
+    }
+
+    /* Hide UI elements */
+    .app-container, .sidebar, .editor-header, .editor-actions, 
+    .chapters-sidebar, .editor-status, .modal {
+        display: none !important;
+    }
+
+    /* Show only the content */
+    .editor-wrapper, .editor {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+    }
+}
