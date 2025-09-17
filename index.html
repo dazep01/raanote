@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
 </head>
 <body>
     <div class="app-container">
@@ -18,6 +19,9 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <h1 class="logo">NovelWriter</h1>
+                <button id="toggle-chapters" class="btn-icon" title="Minimize/Maximize">
+    <i id="toggle-chapters-icon" class="fa-solid fa-chevron-left"></i>
+</button>
                 <button id="new-project-btn" class="btn-primary">+ Project Baru</button>
             </div>
             
