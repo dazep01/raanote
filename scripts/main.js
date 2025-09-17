@@ -455,76 +455,104 @@ async deleteChapter(chapterId) {
     }
 
     // Export to PDF
-    async exportToPDF(options) {
-        if (!this.currentProject) return;
-        
-        try {
-            const chapters = await novelDB.getChaptersByProject(this.currentProject.id);
-            
-            // Create PDF document
-            const pdf = new jsPDF();
-            
-            // Set metadata
-            pdf.setProperties({
-                title: options.title,
-                author: options.author,
-                creator: 'NovelWriter'
-            });
-            
-            // Add title page
-            pdf.setFontSize(24);
-            pdf.text(options.title, 105, 100, { align: 'center' });
-            
-            pdf.setFontSize(16);
-            pdf.text(`Oleh: ${options.author}`, 105, 120, { align: 'center' });
-            
-            pdf.addPage();
-            
-            // Add table of contents
-            pdf.setFontSize(18);
-            pdf.text('Daftar Isi', 20, 30);
-            
-            pdf.setFontSize(12);
-            let yPosition = 50;
-            
-            chapters.forEach((chapter, index) => {
-                if (yPosition > 250) {
-                    pdf.addPage();
-                    yPosition = 30;
-                }
-                
-                pdf.text(`${index + 1}. ${chapter.title}`, 20, yPosition);
-                pdf.text(`${pdf.getNumberOfPages()}`, 180, yPosition, { align: 'right' });
-                
-                yPosition += 10;
-            });
-            
-            // Add chapters
-            for (const chapter of chapters) {
-                pdf.addPage();
-                
-                pdf.setFontSize(16);
-                pdf.text(chapter.title, 20, 30);
-                
-                pdf.setFontSize(12);
-                
-                // Convert HTML to plain text for PDF
-                const content = this.stripHtml(chapter.content || '');
-                const lines = pdf.splitTextToSize(content, 170);
-                
-                pdf.text(lines, 20, 50);
-            }
-            
-            // Save PDF
-            pdf.save(`${options.title}.pdf`);
-            this.showToast('PDF berhasil diekspor', 'success');
-            
-        } catch (error) {
-            console.error('Failed to export PDF:', error);
-            throw error;
-        }
-    }
+// Export to PDF
+async exportToPDF(options) {
+    if (!this.currentProject) return;
 
+    try {
+        // === 1. Ambil data project & bab ===
+        const project = this.currentProject;
+        const chapters = await novelDB.getChaptersByProject(project.id);
+
+        // === 2. Buat dokumen PDF baru ===
+        const pdf = new jspdf.jsPDF({
+            unit: 'pt', // pakai point biar presisi
+            format: 'a4'
+        });
+
+        // Set metadata
+        pdf.setProperties({
+            title: options.title || project.name,
+            author: options.author || 'Unknown',
+            creator: 'RaaNote'
+        });
+
+        // === 3. Halaman Judul ===
+        pdf.setFontSize(24);
+        pdf.text(options.title || project.name, 300, 200, { align: 'center' });
+
+        pdf.setFontSize(16);
+        pdf.text(`Oleh: ${options.author || 'Anonim'}`, 300, 230, { align: 'center' });
+
+        // Tambah halaman untuk Daftar Isi
+        pdf.addPage();
+        pdf.setFontSize(18);
+        pdf.text('Daftar Isi', 40, 60);
+
+        // Simpan index halaman daftar isi
+        const tocPage = pdf.getNumberOfPages();
+
+        // Array catatan daftar isi
+        const tocEntries = [];
+
+        // === 4. Tambahkan setiap bab ===
+        for (const [index, chapter] of chapters.entries()) {
+            pdf.addPage();
+
+            // Catat halaman awal bab ini
+            const startPage = pdf.getNumberOfPages();
+
+            // Judul bab
+            pdf.setFontSize(16);
+            pdf.text(chapter.title || `Bab ${index + 1}`, 40, 60);
+
+            // Isi bab
+            pdf.setFontSize(12);
+            const content = this.stripHtml(chapter.content || '');
+            const lines = pdf.splitTextToSize(content, 500);
+
+            let y = 90;
+            const lineHeight = 16;
+            for (const line of lines) {
+                if (y > 770) { // batas bawah A4
+                    pdf.addPage();
+                    y = 60;
+                }
+                pdf.text(line, 40, y);
+                y += lineHeight;
+            }
+
+            // Masukkan entry ke daftar isi
+            tocEntries.push({
+                title: chapter.title || `Bab ${index + 1}`,
+                page: startPage
+            });
+        }
+
+        // === 5. Kembali ke halaman ToC, isi daftar isi ===
+        pdf.setPage(tocPage);
+        pdf.setFontSize(12);
+        let yPos = 90;
+        tocEntries.forEach((entry, i) => {
+            pdf.text(`${i + 1}. ${entry.title}`, 60, yPos);
+            pdf.text(`${entry.page}`, 520, yPos, { align: 'right' });
+            yPos += 20;
+            if (yPos > 770) {
+                pdf.addPage();
+                yPos = 60;
+            }
+        });
+
+        // === 6. Simpan PDF ===
+        pdf.save(`${options.title || project.name}.pdf`);
+        this.showToast('PDF berhasil diekspor', 'success');
+
+    } catch (error) {
+        console.error('Gagal export PDF:', error);
+        this.showToast('Gagal export PDF', 'error');
+    }
+}
+    
     // Export all data
     async exportAllData() {
         try {
