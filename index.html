@@ -1308,12 +1308,74 @@ updateWordCount() {
                     chapterItem.className = `chapter-item ${this.currentChapterId === chapter.id ? 'active' : ''}`;
                     chapterItem.setAttribute('data-id', chapter.id);
                     chapterItem.setAttribute('draggable', true);
-                    chapterItem.innerHTML = `
-                        <div class="chapter-title">Bab ${index + 1}: ${chapter.title}</div>
-                        <div class="chapter-meta">
-                            <span>${chapter.wordCount || 0} kata</span>
-                        </div>
-                    `;
+chapterItem.innerHTML = `
+    <div class="chapter-title">Bab ${index + 1}: ${chapter.title}</div>
+    <div class="chapter-meta">
+        <span>${chapter.wordCount || 0} kata</span>
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <select class="chapter-status-select" data-id="${chapter.id}" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; ${
+                chapter.status === 'completed' ? 'background-color: #dcfce7; color: #16a34a;' :
+                chapter.status === 'in-review' ? 'background-color: #fef3c7; color: #d97706;' :
+                chapter.status === 'on-hold' ? 'background-color: #f3f4f6; color: #6b7280;' :
+                'background-color: #dbeafe; color: #1d4ed8;'
+            }">
+                <option value="draft" ${chapter.status === 'draft' ? 'selected' : ''}>Draf</option>
+                <option value="in-review" ${chapter.status === 'in-review' ? 'selected' : ''}>Perlu Revisi</option>
+                <option value="completed" ${chapter.status === 'completed' ? 'selected' : ''}>Selesai</option>
+                <option value="on-hold" ${chapter.status === 'on-hold' ? 'selected' : ''}>Ditunda</option>
+            </select>
+            <button class="btn-delete-chapter" data-id="${chapter.id}" title="Hapus Bab" style="background: none; border: none; cursor: pointer; padding: 2px; color: #ef4444; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+`;
+
+// Tambahkan kode ini DI DALAM loop forEach chapter, SETELAH chapterItem.innerHTML
+const statusSelect = chapterItem.querySelector('.chapter-status-select');
+statusSelect.addEventListener('change', async (e) => {
+    e.stopPropagation(); // agar tidak memicu klik bab
+    const newStatus = e.target.value;
+    const project = appState.getCurrentProject();
+    if (!project) return;
+    
+    const targetChapter = project.chapters.find(c => c.id === chapter.id);
+    if (targetChapter) {
+        targetChapter.status = newStatus;
+        targetChapter.updatedAt = new Date().toISOString();
+        await appState.saveProject(project);
+        appState.showToast(`Status bab "${chapter.title}" diubah menjadi: ${newStatus}`, 'success');
+    }
+});
+
+// Tambahkan kode ini DI DALAM loop forEach chapter, SETELAH event listener statusSelect
+const deleteBtn = chapterItem.querySelector('.btn-delete-chapter');
+deleteBtn.addEventListener('click', async (e) => {
+    e.stopPropagation(); // agar tidak memicu klik bab
+    if (!confirm(`Hapus bab "${chapter.title}"?\nTindakan ini tidak dapat dibatalkan.`)) {
+        return;
+    }
+    const project = appState.getCurrentProject();
+    if (!project) return;
+    
+    const chapterIndex = project.chapters.findIndex(c => c.id === chapter.id);
+    if (chapterIndex > -1) {
+        project.chapters.splice(chapterIndex, 1);
+        await appState.saveProject(project);
+        
+        // Jika bab yang dihapus adalah bab yang sedang aktif, pindah ke bab lain
+        if (appState.currentChapterId === chapter.id) {
+            appState.currentChapterId = project.chapters.length > 0 ? project.chapters[0].id : null;
+        }
+        
+        appState.renderChapters();
+        appState.renderEditor();
+        appState.showToast(`Bab "${chapter.title}" berhasil dihapus`, 'success');
+    }
+});
                     
                     chapterItem.addEventListener('click', () => {
                         this.currentChapterId = chapter.id;
@@ -2017,7 +2079,8 @@ async exportToPDF(options, previewMode = false) {
                     content: '',
                     wordCount: 0,
                     createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
+                    updatedAt: new Date().toISOString(),
+                    status: 'draft'
                 };
 
                 project.chapters.push(newChapter);
