@@ -43,10 +43,6 @@
             padding: 0;
             margin: 0;
             height: 100vh;
-            display: flex;
-            flex-direction: column;
-            top: 0;
-            overflow: hidden;
         }
 
         .app-container {
@@ -821,6 +817,7 @@
             <div class="projects-section">
                 <div class="section-title">
                     <span>Project Saya</span>
+                    <div>
                     <button id="importBtn" class="btn btn-outline btn-sm" title="Import Project">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -828,6 +825,14 @@
                             <line x1="12" y1="3" x2="12" y2="15"></line>
                         </svg>
                     </button>
+                    <button id="exportJsonBtn" class="btn btn-outline btn-sm" title="Export Project (JSON)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </button>
+                    </div>
                 </div>
                 <div class="project-list" id="projectList">
                     <!-- Project items will be inserted here -->
@@ -2110,6 +2115,23 @@ document.getElementById('downloadPDFBtn').addEventListener('click', () => {
                     alert('Gagal mengimpor project: ' + error.message);
                 }
             });
+            
+// Export Project To Json
+document.getElementById('exportJsonBtn').addEventListener('click', () => {
+    const project = appState.getCurrentProject();
+    if (!project) {
+        appState.showToast('Tidak ada project yang dipilih', 'error');
+        return;
+    }
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(project, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `${project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    document.body.removeChild(downloadAnchor);
+    appState.showToast('Project berhasil diekspor ke JSON', 'success');
+});
 
             // Close modals when clicking outside
             document.querySelectorAll('.modal-overlay').forEach(modal => {
