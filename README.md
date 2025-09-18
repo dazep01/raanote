@@ -71,9 +71,13 @@ Semua dependensi dimuat melalui CDN, jadi tidak perlu instalasi tambahan.
 ## 📂 Struktur Project
 
 raanote/
+
 │── [index.html](./index.html)       # Aplikasi utama
+
 │── [assets/](./assets)              # Ikon & gambar pendukung
+
 │── [README.md](./README.md)         # Dokumentasi
+
 │── [LICENSE](./LICENSE)             # Lisensi
 
 
