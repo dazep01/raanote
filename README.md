@@ -50,7 +50,7 @@ dan mengekspor hasilnya ke PDF dengan sekali klik.
 ## 🚀 Cara Menjalankan
 
 ### 1. Clone repositori ini:
-   git clone https://github.com/USERNAME/raanote.git
+   git clone https://github.com/dazep01/raanote.git
 
 ### 2. Buka file index.html langsung di browser.
   Tidak perlu server tambahan, semua berjalan di sisi klien.
@@ -60,10 +60,8 @@ dan mengekspor hasilnya ke PDF dengan sekali klik.
 
 ## 📦 Dependensi
 
-jsPDF — untuk ekspor ke PDF
-
-Google Fonts — Inter & Source Serif Pro
-
+- **jsPDF** — untuk ekspor ke PDF
+- **Google Fonts** — Inter & Source Serif Pro
 
 Semua dependensi dimuat melalui CDN, jadi tidak perlu instalasi tambahan.
 
@@ -73,9 +71,10 @@ Semua dependensi dimuat melalui CDN, jadi tidak perlu instalasi tambahan.
 ## 📂 Struktur Project
 
 raanote/
-│── index.html       # Aplikasi utama
-│── assets/          # Ikon & gambar pendukung
-│── README.md        # Dokumentasi
+│── [index.html](./index.html)       # Aplikasi utama
+│── [assets/](./assets)              # Ikon & gambar pendukung
+│── [README.md](./README.md)         # Dokumentasi
+│── [LICENSE](./LICENSE)             # Lisensi
 
 
 ---
