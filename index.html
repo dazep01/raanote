@@ -1313,7 +1313,7 @@ chapterItem.innerHTML = `
     <div class="chapter-meta">
         <span>${chapter.wordCount || 0} kata</span>
         <div style="display: flex; align-items: center; gap: 6px;">
-            <select class="chapter-status-select" data-id="${chapter.id}" style="font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; ${
+            <select class="chapter-status-select" data-id="${chapter.id}" style="font-size: 11px; z-index: 1000; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; ${
                 chapter.status === 'completed' ? 'background-color: #dcfce7; color: #16a34a;' :
                 chapter.status === 'in-review' ? 'background-color: #fef3c7; color: #d97706;' :
                 chapter.status === 'on-hold' ? 'background-color: #f3f4f6; color: #6b7280;' :
