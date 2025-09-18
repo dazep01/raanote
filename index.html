@@ -792,6 +792,24 @@
             font-weight: 600;
             color: var(--text);
         }
+
+        /* Perbaikan untuk select status chapter */
+        .chapter-status-select {
+            z-index: 1000 !important;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        /* Memastikan elemen select dapat diklik */
+        .chapter-item select {
+            pointer-events: all !important;
+        }
+        
+        /* Memperbaiki tampilan dropdown */
+        .chapter-status-select:focus {
+            outline: 2px solid #D35400;
+            outline-offset: 2px;
+        }
     </style>
 </head>
 <body>
@@ -1336,20 +1354,30 @@ chapterItem.innerHTML = `
 
 // Tambahkan kode ini DI DALAM loop forEach chapter, SETELAH chapterItem.innerHTML
 const statusSelect = chapterItem.querySelector('.chapter-status-select');
-statusSelect.addEventListener('change', async (e) => {
-    e.stopPropagation(); // agar tidak memicu klik bab
-    const newStatus = e.target.value;
-    const project = appState.getCurrentProject();
-    if (!project) return;
-    
-    const targetChapter = project.chapters.find(c => c.id === chapter.id);
-    if (targetChapter) {
-        targetChapter.status = newStatus;
-        targetChapter.updatedAt = new Date().toISOString();
-        await appState.saveProject(project);
-        appState.showToast(`Status bab "${chapter.title}" diubah menjadi: ${newStatus}`, 'success');
-    }
-});
+statusSelect.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+            });
+statusSelect.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+            
+            statusSelect.addEventListener('change', async (e) => {
+                e.stopPropagation();
+                const newStatus = e.target.value;
+                const project = appState.getCurrentProject();
+                if (!project) return;
+                
+                const targetChapter = project.chapters.find(c => c.id === chapter.id);
+                if (targetChapter) {
+                    targetChapter.status = newStatus;
+                    targetChapter.updatedAt = new Date().toISOString();
+                    await appState.saveProject(project);
+                    appState.showToast(`Status bab "${chapter.title}" diubah menjadi: ${newStatus}`, 'success');
+                    
+                    // Memperbarui tampilan untuk mencerminkan perubahan status
+                    appState.renderChapters();
+                }
+            });
 
 // Tambahkan kode ini DI DALAM loop forEach chapter, SETELAH event listener statusSelect
 const deleteBtn = chapterItem.querySelector('.btn-delete-chapter');
