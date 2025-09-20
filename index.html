@@ -2134,9 +2134,9 @@ document.getElementById('googleLoginBtn').onclick = function() {
         document.getElementById('googleUserName').textContent = googleUser.getName();
         appState.showToast('Login Google berhasil', 'success');
     }).catch(err => {
-        appState.showToast('Gagal login Google', 'error');
-        console.error(err);
-    });
+    appState.showToast('Gagal login Google: ' + (err.error || err.details || err.message || JSON.stringify(err)), 'error');
+    console.error(err);
+});
 };
 
 // Panggil inisialisasi saat halaman siap
