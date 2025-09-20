@@ -9,6 +9,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/dazep01/raanote/main/assets/pngwing.com.png" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root {
             --primary: #D35400;
@@ -821,6 +824,8 @@
                     <img style="width: 35px; height: auto;" src="https://raw.githubusercontent.com/dazep01/raanote/main/assets/pngwing.com.png"/>
                     RaaNote
                 </div>
+                <button id="googleLoginBtn" class="btn btn-outline btn-sm">Login Google</button>
+                <span id="googleUserName" style="margin-left:10px;"></span>
                 <button id="newProjectBtn" class="btn btn-primary btn-icon" title="Buat Project Baru">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -845,6 +850,9 @@
                             <polyline points="7 10 12 15 17 10"></polyline>
                             <line x1="12" y1="15" x2="12" y2="3"></line>
                         </svg>
+                    </button>
+                    <button id="restoreDriveBtn" class="btn btn-outline btn-sm">
+                      <i class="fa-solid fa-rotate-right"></i>
                     </button>
                     </div>
                 </div>
@@ -907,6 +915,21 @@
             </div>
         </main>
     </div>
+    
+<div class="modal-overlay" id="restoreDriveModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Restore Project dari Google Drive</h3>
+            <button class="modal-close" data-dismiss="modal">&times;</button>
+        </div>
+        <div class="modal-body" id="restoreDriveList">
+            <div>Loading daftar backup...</div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" data-dismiss="modal">Batal</button>
+        </div>
+    </div>
+</div>
 
     <!-- New Project Modal -->
     <div class="modal-overlay" id="newProjectModal">
@@ -1149,34 +1172,43 @@
                 });
             }
 
-            async saveProject(project) {
-                return new Promise((resolve, reject) => {
-                    if (!this.db) {
-                        reject('Database not initialized');
-                        return;
-                    }
+async saveProject(project) {
+    return new Promise((resolve, reject) => {
+        if (!this.db) {
+            reject('Database not initialized');
+            return;
+        }
 
-                    const transaction = this.db.transaction(['projects'], 'readwrite');
-                    const store = transaction.objectStore('projects');
-                    const request = store.put(project);
+        const transaction = this.db.transaction(['projects'], 'readwrite');
+        const store = transaction.objectStore('projects');
+        const request = store.put(project);
 
-                    request.onsuccess = () => {
-                        // Update projects array
-                        const index = this.projects.findIndex(p => p.id === project.id);
-                        if (index > -1) {
-                            this.projects[index] = project;
-                        } else {
-                            this.projects.push(project);
-                        }
-                        this.renderProjects();
-                        resolve();
-                    };
-
-                    request.onerror = () => {
-                        reject(request.error);
-                    };
-                });
+        request.onsuccess = () => {
+            // Update projects array
+            const index = this.projects.findIndex(p => p.id === project.id);
+            if (index > -1) {
+                this.projects[index] = project;
+            } else {
+                this.projects.push(project);
             }
+            this.renderProjects();
+            resolve();
+
+            // Backup otomatis ke Google Drive
+            if (window.googleAccessToken && typeof backupProjectToDrive === 'function') {
+    const now = Date.now();
+    if (now - lastBackupTime > 60000) { // 1 menit
+        backupProjectToDrive(project);
+        lastBackupTime = now;
+    }
+}
+        };
+
+        request.onerror = () => {
+            reject(request.error);
+        };
+    });
+}
 
             async deleteProject(projectId) {
                 return new Promise((resolve, reject) => {
@@ -2023,6 +2055,151 @@ async exportToPDF(options, previewMode = false) {
 
         // Initialize App
         const appState = new AppState();
+
+// Ganti dengan client_id dan API key milikmu
+const GOOGLE_CLIENT_ID = '472929342174-7945gsi1qrfp8i19guda7sijtpof0pg1.apps.googleusercontent.com';
+const GOOGLE_API_KEY = 'AIzaSyCxaRrnhG8yzgAiCbdAXCKpWCkHhlts_Ds';
+
+// Status login
+let googleUser = null;
+let googleAccessToken = null;
+let lastBackupTime = 0;
+
+// Inisialisasi Google API Client
+function initGapi() {
+    gapi.load('client:auth2', () => {
+        gapi.client.init({
+            apiKey: GOOGLE_API_KEY,
+            clientId: GOOGLE_CLIENT_ID,
+            scope: 'https://www.googleapis.com/auth/drive.file',
+            discoveryDocs: [
+                'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'
+            ]
+        }).then(() => {
+            // Siap login
+        });
+    });
+}
+
+async function backupProjectToDrive(project) {
+    if (!googleAccessToken) {
+        appState.showToast('Login Google dulu untuk backup!', 'error');
+        return;
+    }
+    const fileName = `${project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_backup.json`;
+
+    // 1. Cari file lama di Drive
+    try {
+        const listRes = await gapi.client.drive.files.list({
+            q: `name='${fileName}' and trashed=false`,
+            fields: 'files(id, name)'
+        });
+        const oldFiles = listRes.result.files || [];
+        // 2. Hapus file lama
+        for (const file of oldFiles) {
+            await gapi.client.drive.files.delete({ fileId: file.id });
+        }
+    } catch (err) {
+        // Gagal cek/hapus, lanjut backup baru saja
+    }
+
+    // 3. Upload file baru
+    const metadata = { name: fileName, mimeType: 'application/json' };
+    const file = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', file);
+
+    try {
+        const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + googleAccessToken },
+            body: form
+        });
+        if (res.ok) {
+            appState.showToast('Backup ke Google Drive sukses!', 'success');
+        } else {
+            appState.showToast('Gagal backup ke Drive', 'error');
+        }
+    } catch (err) {
+        appState.showToast('Error backup Drive: ' + err.message, 'error');
+    }
+}
+
+// Tampilkan tombol login
+document.getElementById('googleLoginBtn').onclick = function() {
+    gapi.auth2.getAuthInstance().signIn().then(user => {
+        googleUser = user.getBasicProfile();
+        googleAccessToken = user.getAuthResponse().access_token;
+        document.getElementById('googleUserName').textContent = googleUser.getName();
+        appState.showToast('Login Google berhasil', 'success');
+    }).catch(err => {
+        appState.showToast('Gagal login Google', 'error');
+        console.error(err);
+    });
+};
+
+// Panggil inisialisasi saat halaman siap
+window.addEventListener('DOMContentLoaded', initGapi);
+
+document.getElementById('restoreDriveBtn').addEventListener('click', async () => {
+    if (!googleAccessToken) {
+        appState.showToast('Login Google dulu!', 'error');
+        return;
+    }
+    const modal = document.getElementById('restoreDriveModal');
+    const listDiv = document.getElementById('restoreDriveList');
+    modal.classList.add('active');
+    listDiv.innerHTML = '<div>Loading daftar backup...</div>';
+
+    try {
+        // Ambil semua file backup
+        const res = await gapi.client.drive.files.list({
+            q: "mimeType='application/json' and name contains '_backup.json' and trashed=false",
+            fields: "files(id,name,modifiedTime)",
+            orderBy: "modifiedTime desc"
+        });
+        const files = res.result.files || [];
+        if (!files.length) {
+            listDiv.innerHTML = '<div>Tidak ada backup ditemukan di Google Drive.</div>';
+            return;
+        }
+        // Tampilkan daftar file
+        listDiv.innerHTML = files.map(file => `
+            <div class="restore-backup-item" style="padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                <span>
+                    <b>${file.name.replace('_backup.json','')}</b>
+                    <br>
+                    <small>Backup: ${new Date(file.modifiedTime).toLocaleString('id-ID')}</small>
+                </span>
+                <button class="btn btn-primary btn-sm" data-id="${file.id}">Restore</button>
+            </div>
+        `).join('');
+        // Tambahkan event restore
+        listDiv.querySelectorAll('button[data-id]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                btn.disabled = true;
+                btn.textContent = 'Restoring...';
+                try {
+                    const dl = await gapi.client.drive.files.get({
+                        fileId: btn.getAttribute('data-id'),
+                        alt: 'media'
+                    });
+                    // Import project
+                    await appState.saveProject(dl.result);
+                    appState.showToast('Restore dari Drive berhasil', 'success');
+                    modal.classList.remove('active');
+                } catch (err) {
+                    appState.showToast('Gagal restore: ' + err.message, 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Restore';
+                }
+            });
+        });
+    } catch (err) {
+        listDiv.innerHTML = '<div>Gagal mengambil daftar backup Drive.</div>';
+    }
+});
 
         // Event Listeners
         document.addEventListener('DOMContentLoaded', () => {
