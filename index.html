@@ -858,6 +858,101 @@
             outline: 2px solid var(--primary);
             outline-offset: 2px;
         }
+
+/* Overlay modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  z-index: 1000;
+}
+
+/* Saat aktif (ditampilkan) */
+.modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Box modal */
+.modal {
+  background: var(--bg, #fff);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  padding: 20px;
+  width: 90%;
+  max-width: 400px;
+  transform: scale(0.9) translateY(20px);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+/* Animasi masuk */
+.modal-overlay.active .modal {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+/* Header modal */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #888;
+  transition: color 0.2s ease;
+}
+.modal-close:hover {
+  color: #000;
+}
+
+/* Loader spinner */
+#loginLoader .spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(0,0,0,0.1);
+  border-radius: 50%;
+  border-top-color: var(--primary, #4285F4);
+  animation: spin 1s linear infinite;
+  margin: 0 auto 10px auto;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Dark mode friendly */
+@media (prefers-color-scheme: dark) {
+  .modal {
+    background: #1e1e1e;
+    color: #f0f0f0;
+  }
+  .modal-header {
+    border-color: rgba(255,255,255,0.1);
+  }
+  .modal-close:hover {
+    color: #fff;
+  }
+}
     </style>
 </head>
 <body>
@@ -1153,6 +1248,31 @@
             </div>
         </div>
     </div>
+
+<!-- Modal Login -->
+<div id="loginModal" class="modal-overlay">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <h3>Login ke Google Drive</h3>
+      <button class="modal-close" data-dismiss="modal">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align:center; padding:30px;">
+      <div style="margin-bottom:20px;">
+        <i class="fab fa-google" style="font-size:48px; color:#4285F4;"></i>
+      </div>
+      <p style="margin-bottom:20px; font-size:14px; color:var(--text-light);">
+        Hubungkan akun Google-mu untuk menyimpan & memulihkan proyek langsung di Drive.
+      </p>
+      <button id="googleLoginBtn" class="btn btn-primary btn-block" style="display:flex; align-items:center; justify-content:center; gap:10px;">
+        <i class="fab fa-google"></i> Login dengan Google
+      </button>
+      <div id="loginLoader" style="display:none; margin-top:20px;">
+        <div class="spinner" style="border-top-color: var(--primary);"></div>
+        <span style="font-size:13px; color:var(--text-light);">Menunggu autentikasi...</span>
+      </div>
+    </div>
+  </div>
+</div>
 
     <script>
         // Initialize jspdf
@@ -2426,18 +2546,67 @@
             });
 
             // Google Drive Integration
-            document.getElementById('connectDriveBtn')?.addEventListener('click', async () => {
-                if (appState.googleDriveEnabled) {
-                    // Putuskan sambungan
-                    appState.googleDriveEnabled = false;
-                    appState.driveAccessToken = null;
-                    appState.updateDriveUI('Tidak terhubung', false);
-                    appState.showToast('Google Drive diputuskan', 'success');
-                } else {
-                    // Hubungkan
-                    await appState.authenticateWithGoogle();
-                }
-            });
+// Tombol utama Connect/Disconnect Google Drive
+document.getElementById('connectDriveBtn')?.addEventListener('click', () => {
+  if (appState.googleDriveEnabled) {
+    // Putuskan sambungan
+    appState.googleDriveEnabled = false;
+    appState.driveAccessToken = null;
+    appState.updateDriveUI('Tidak terhubung', false);
+    appState.showToast('Google Drive diputuskan', 'success');
+  } else {
+    // Buka modal login fancy
+    document.getElementById("loginModal").classList.add("active");
+  }
+});
+
+// Tombol login Google di modal
+document.getElementById("googleLoginBtn").addEventListener("click", () => {
+  document.getElementById("googleLoginBtn").disabled = true;
+  document.getElementById("loginLoader").style.display = "block";
+
+  // Buka popup login kecil
+  const popup = window.open(
+    GAS_URL + "?action=auth",
+    "googleLogin",
+    "width=500,height=600,left=200,top=100"
+  );
+
+  // Auto close modal setelah popup muncul
+  if (popup) {
+    document.getElementById("loginModal").classList.remove("active");
+  }
+});
+
+// Listener pesan balik dari Apps Script
+window.addEventListener("message", (event) => {
+  if (event.data?.type === "google-auth-success") {
+    appState.driveAccessToken = event.data.token;
+    appState.googleDriveEnabled = true;
+    document.getElementById("sidebarDriveStatus").textContent = "Status: Terhubung ✅";
+    appState.showToast("Google Drive berhasil terhubung", "success");
+  } else if (event.data?.type === "google-auth-failed") {
+    appState.showToast("Login Google gagal", "error");
+  }
+
+  // Reset loader
+  document.getElementById("googleLoginBtn").disabled = false;
+  document.getElementById("loginLoader").style.display = "none";
+});
+
+// Tutup modal saat klik tombol close
+document.querySelectorAll('[data-dismiss="modal"]').forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.getElementById("loginModal").classList.remove("active");
+  });
+});
+
+// Tutup modal kalau klik di luar box modal
+document.getElementById("loginModal").addEventListener("click", (e) => {
+  if (e.target.classList.contains("modal-overlay")) {
+    e.currentTarget.classList.remove("active");
+  }
+});
 
             document.getElementById('manualSyncBtn')?.addEventListener('click', async () => {
                 await appState.syncToGoogleDrive();
