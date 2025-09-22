@@ -24,8 +24,8 @@
     projectId: "raanote-72869",
     storageBucket: "raanote-72869.firebasestorage.app",
     messagingSenderId: "652418989145",
-    appId: "1:652418989145:web:564c0065d748b6aaf24548",
-    measurementId: "G-P4HSZQJNJV"
+    appId: "1:652418989145:web:a49962532d9a2f54f24548",
+    measurementId: "G-L189K1R010"
   };
 
   // Initialize Firebase
@@ -1111,938 +1111,1071 @@
         // Initialize jspdf
         const { jsPDF } = window.jspdf;
 
-        // App State
-        class AppState {
-            constructor() {
-                this.projects = [];
-                this.currentProjectId = null;
-                this.currentChapterId = null;
-                this.autoSaveTimer = null;
-                this.db = null;
-                this.initDatabase();
-            }
-
-            async initDatabase() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open('RaaNoteDB', 1);
-                    
-                    request.onerror = () => {
-                        console.error('Error opening database');
-                        reject(request.error);
-                    };
-                    
-                    request.onsuccess = () => {
-                        this.db = request.result;
-                        this.loadProjects();
-                        resolve();
-                    };
-                    
-                    request.onupgradeneeded = (event) => {
-                        const db = event.target.result;
-                        
-                        // Create object stores
-                        if (!db.objectStoreNames.contains('projects')) {
-                            const projectStore = db.createObjectStore('projects', { keyPath: 'id' });
-                            projectStore.createIndex('title', 'title', { unique: false });
-                        }
-                    };
-                });
-            }
-
-            async loadProjects() {
-                return new Promise((resolve, reject) => {
-                    if (!this.db) {
-                        reject('Database not initialized');
-                        return;
-                    }
-
-                    const transaction = this.db.transaction(['projects'], 'readonly');
-                    const store = transaction.objectStore('projects');
-                    const request = store.getAll();
-
-                    request.onsuccess = () => {
-                        this.projects = request.result || [];
-                        this.renderProjects();
-                        resolve();
-                    };
-
-                    request.onerror = () => {
-                        reject(request.error);
-                    };
-                });
-            }
-
-            async saveProject(project) {
-                return new Promise((resolve, reject) => {
-                    if (!this.db) {
-                        reject('Database not initialized');
-                        return;
-                    }
-
-                    const transaction = this.db.transaction(['projects'], 'readwrite');
-                    const store = transaction.objectStore('projects');
-                    const request = store.put(project);
-
-                    request.onsuccess = () => {
-                        // Update projects array
-                        const index = this.projects.findIndex(p => p.id === project.id);
-                        if (index > -1) {
-                            this.projects[index] = project;
-                        } else {
-                            this.projects.push(project);
-                        }
-                        this.renderProjects();
-                        resolve();
-                    };
-
-                    request.onerror = () => {
-                        reject(request.error);
-                    };
-                });
-            }
-
-            async deleteProject(projectId) {
-                return new Promise((resolve, reject) => {
-                    if (!this.db) {
-                        reject('Database not initialized');
-                        return;
-                    }
-
-                    const transaction = this.db.transaction(['projects'], 'readwrite');
-                    const store = transaction.objectStore('projects');
-                    const request = store.delete(projectId);
-
-                    request.onsuccess = () => {
-                        // Update projects array
-                        this.projects = this.projects.filter(p => p.id !== projectId);
-                        this.renderProjects();
-                        
-                        // If current project was deleted, reset current project
-                        if (this.currentProjectId === projectId) {
-                            this.currentProjectId = null;
-                            this.currentChapterId = null;
-                            this.renderEditor();
-                        }
-                        
-                        resolve();
-                    };
-
-                    request.onerror = () => {
-                        reject(request.error);
-                    };
-                });
-            }
-
-            getCurrentProject() {
-                return this.projects.find(p => p.id === this.currentProjectId) || null;
-            }
-
-            getCurrentChapter() {
-                const project = this.getCurrentProject();
-                if (!project) return null;
-                return project.chapters.find(c => c.id === this.currentChapterId) || null;
-            }
-
-updateWordCount() {
-    const chapter = this.getCurrentChapter();
-    if (!chapter) {
-        document.getElementById('wordCount').textContent = '0';
-        return;
+class AppState {
+    constructor() {
+        this.projects = [];
+        this.currentProjectId = null;
+        this.currentChapterId = null;
+        this.autoSaveTimer = null;
+        this.db = null;
+        this.initDatabase();
     }
-    const html = chapter.content || '';
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
-    const text = tempDiv.textContent || tempDiv.innerText || '';
-    const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
-    chapter.wordCount = wordCount;
-    document.getElementById('wordCount').textContent = wordCount.toLocaleString('id-ID');
-}
 
-            renderProjects() {
-                const projectList = document.getElementById('projectList');
-                projectList.innerHTML = '';
-
-                if (this.projects.length === 0) {
-                    projectList.innerHTML = `
-                        <div style="padding: 20px; text-align: center; color: var(--text-light);">
-                            <p>Belum ada project.</p>
-                            <p style="margin-top: 10px; font-size: 14px;">Buat project pertama Anda!</p>
-                        </div>
-                    `;
-                    return;
+    async initDatabase() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('RaaNoteDB', 1);
+            
+            request.onerror = () => {
+                console.error('Error opening database');
+                reject(request.error);
+            };
+            
+            request.onsuccess = () => {
+                this.db = request.result;
+                this.loadProjects();
+                resolve();
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                if (!db.objectStoreNames.contains('projects')) {
+                    const projectStore = db.createObjectStore('projects', { keyPath: 'id' });
+                    projectStore.createIndex('title', 'title', { unique: false });
                 }
+            };
+        });
+    }
 
-                this.projects.forEach(project => {
-                    // Calculate total word count
-                    const totalWords = project.chapters.reduce((sum, chapter) => sum + (chapter.wordCount || 0), 0);
-                    const chapterCount = project.chapters.length;
+    // Fungsi untuk memuat project dari IndexedDB (cadangan lokal)
+    loadStateFromIndexedDB() {
+        const stored = localStorage.getItem('raanote-state');
+        if (stored) {
+            const state = JSON.parse(stored);
+            this.projects = state.projects || [];
+            this.currentProjectId = state.currentProjectId || null;
+            return this.projects;
+        }
+        return [];
+    }
 
-                    const projectItem = document.createElement('div');
-                    projectItem.className = `project-item ${this.currentProjectId === project.id ? 'active' : ''}`;
-                    projectItem.setAttribute('data-id', project.id);
-                    projectItem.innerHTML = `
-                        <div class="project-title">${project.title}</div>
-                        <div class="project-meta">
-                            <span>${project.author}</span>
-                            <div class="project-stats">
-                                <span class="stat">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                                    </svg>
-                                    ${chapterCount}
-                                </span>
-                                <span class="stat">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M12 2v10"></path>
-                                        <path d="M18.5 7.5L12 14l-6.5-6.5"></path>
-                                    </svg>
-                                    ${totalWords.toLocaleString('id-ID')}
-                                </span>
-                            </div>
-                        </div>
-                    `;
-                    
-                    projectItem.addEventListener('click', () => {
-                        this.currentProjectId = project.id;
-                        this.currentChapterId = project.chapters.length > 0 ? project.chapters[0].id : null;
-                        this.renderProjects();
-                        this.renderChapters();
-                        this.renderEditor();
-                        document.getElementById('exportBtn').disabled = false;
-                        document.getElementById('addChapterBtn').disabled = false;
-                        document.getElementById('currentProjectTitle').textContent = project.title;
-                    });
-                    
-                    projectItem.addEventListener('contextmenu', (e) => {
-                        e.preventDefault();
-                        this.showProjectContextMenu(e, project);
-                    });
+    // Fungsi untuk menyimpan project ke IndexedDB (cadangan lokal)
+    saveStateToIndexedDB() {
+        const stateToSave = {
+            projects: this.projects,
+            currentProjectId: this.currentProjectId
+        };
+        localStorage.setItem('raanote-state', JSON.stringify(stateToSave));
+    }
 
-                    projectList.appendChild(projectItem);
-                });
+    // Fungsi untuk MENYIMPAN ke FIRESTORE
+    async saveToFirestore(project) {
+        try {
+            const projectRef = db.collection("projects").doc(project.id);
+            await projectRef.set(project);
+            this.showToast('Project berhasil disimpan ke Firestore', 'success');
+        } catch (error) {
+            console.error("Error saving to Firestore: ", error);
+            this.showToast('Gagal menyimpan project ke Firestore', 'error');
+        }
+    }
+
+    // Fungsi untuk MEMUAT dari FIRESTORE
+    async loadFromFirestore() {
+        try {
+            const snapshot = await db.collection("projects").get();
+            const projects = [];
+            snapshot.forEach(doc => {
+                projects.push(doc.data());
+            });
+            return projects;
+        } catch (error) {
+            console.error("Error loading from Firestore: ", error);
+            this.showToast('Gagal memuat project dari Firestore', 'error');
+            return [];
+        }
+    }
+
+    // Fungsi utama untuk memuat data saat aplikasi dimulai
+    async loadInitialState() {
+        // Coba muat dari Firestore terlebih dahulu
+        let projects = await this.loadFromFirestore();
+        if (projects.length === 0) {
+            // Jika tidak ada data di Firestore, coba muat dari IndexedDB
+            this.showToast('Memuat dari penyimpanan lokal...', 'info');
+            projects = this.loadStateFromIndexedDB();
+        }
+        this.projects = projects;
+        this.renderProjects();
+    }
+
+    showToast(message, type = 'info') {
+        const toast = document.getElementById('toast');
+        if (toast) {
+            toast.textContent = message;
+            toast.className = `toast toast-${type}`;
+            toast.classList.add('active');
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 3000);
+        }
+    }
+
+    async loadProjects() {
+        return new Promise((resolve, reject) => {
+            if (!this.db) {
+                reject('Database not initialized');
+                return;
             }
 
-            renderChapters() {
-                const chaptersList = document.getElementById('chaptersList');
-                const project = this.getCurrentProject();
+            const transaction = this.db.transaction(['projects'], 'readonly');
+            const store = transaction.objectStore('projects');
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                this.projects = request.result || [];
+                this.renderProjects();
+                resolve();
+            };
+
+            request.onerror = () => {
+                reject(request.error);
+            };
+        });
+    }
+
+    async saveProject(project) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) {
+                reject('Database not initialized');
+                return;
+            }
+
+            const transaction = this.db.transaction(['projects'], 'readwrite');
+            const store = transaction.objectStore('projects');
+            const request = store.put(project);
+
+            request.onsuccess = () => {
+                const index = this.projects.findIndex(p => p.id === project.id);
+                if (index > -1) {
+                    this.projects[index] = project;
+                } else {
+                    this.projects.push(project);
+                }
+                this.renderProjects();
                 
-                if (!project) {
-                    chaptersList.innerHTML = '';
-                    return;
+                // Simpan ke semua storage
+                this.saveStateToIndexedDB();
+                this.saveToFirestore(project);
+                
+                resolve();
+            };
+
+            request.onerror = () => {
+                reject(request.error);
+            };
+        });
+    }
+
+    async deleteProject(projectId) {
+        return new Promise((resolve, reject) => {
+            if (!this.db) {
+                reject('Database not initialized');
+                return;
+            }
+
+            const transaction = this.db.transaction(['projects'], 'readwrite');
+            const store = transaction.objectStore('projects');
+            const request = store.delete(projectId);
+
+            request.onsuccess = () => {
+                this.projects = this.projects.filter(p => p.id !== projectId);
+                this.renderProjects();
+                
+                if (this.currentProjectId === projectId) {
+                    this.currentProjectId = null;
+                    this.currentChapterId = null;
+                    this.renderEditor();
                 }
+                
+                // Hapus dari semua storage
+                this.saveStateToIndexedDB();
+                
+                resolve();
+            };
 
-                chaptersList.innerHTML = '';
+            request.onerror = () => {
+                reject(request.error);
+            };
+        });
+    }
 
-                if (project.chapters.length === 0) {
-                    chaptersList.innerHTML = `
-                        <div style="padding: 20px; text-align: center; color: var(--text-light);">
-                            <p>Belum ada bab.</p>
-                            <p style="margin-top: 10px; font-size: 14px;">Tambahkan bab pertama Anda!</p>
-                        </div>
-                    `;
-                    return;
-                }
+    createProject(title, author = 'Penulis', genre = 'Fiksi', description = '') {
+        const newProject = {
+            id: 'project_' + Date.now(),
+            title: title || 'Novel Baru',
+            author: author,
+            genre: genre,
+            description: description,
+            chapters: [{
+                id: 'chapter_' + Date.now(),
+                title: 'Bab 1: Awal Kisah',
+                content: '',
+                status: 'draft',
+                wordCount: 0,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        this.projects.push(newProject);
+        this.currentProjectId = newProject.id;
+        this.currentChapterId = newProject.chapters[0].id;
+        this.saveProject(newProject);
+        this.showToast('Project berhasil dibuat', 'success');
+    }
 
-                project.chapters.forEach((chapter, index) => {
-                    const chapterItem = document.createElement('div');
-                    chapterItem.className = `chapter-item ${this.currentChapterId === chapter.id ? 'active' : ''}`;
-                    chapterItem.setAttribute('data-id', chapter.id);
-                    chapterItem.setAttribute('draggable', true);
-chapterItem.innerHTML = `
-    <div class="chapter-title">Bab ${index + 1}: ${chapter.title}</div>
-    <div class="chapter-meta">
-        <span>${chapter.wordCount || 0} kata</span>
-        <div style="display: flex; align-items: center; gap: 6px;">
-            <select class="chapter-status-select" data-id="${chapter.id}" style="font-size: 11px; z-index: 1000; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; ${
-                chapter.status === 'completed' ? 'background-color: #dcfce7; color: #16a34a;' :
-                chapter.status === 'in-review' ? 'background-color: #fef3c7; color: #d97706;' :
-                chapter.status === 'on-hold' ? 'background-color: #f3f4f6; color: #6b7280;' :
-                'background-color: #dbeafe; color: #1d4ed8;'
-            }">
-                <option value="draft" ${chapter.status === 'draft' ? 'selected' : ''}>Draf</option>
-                <option value="in-review" ${chapter.status === 'in-review' ? 'selected' : ''}>Perlu Revisi</option>
-                <option value="completed" ${chapter.status === 'completed' ? 'selected' : ''}>Selesai</option>
-                <option value="on-hold" ${chapter.status === 'on-hold' ? 'selected' : ''}>Ditunda</option>
-            </select>
-            <button class="btn-delete-chapter" data-id="${chapter.id}" title="Hapus Bab" style="background: none; border: none; cursor: pointer; padding: 2px; color: #ef4444; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-            </button>
-        </div>
-    </div>
-`;
+    getCurrentProject() {
+        return this.projects.find(p => p.id === this.currentProjectId) || null;
+    }
 
-// Tambahkan kode ini DI DALAM loop forEach chapter, SETELAH chapterItem.innerHTML
-const statusSelect = chapterItem.querySelector('.chapter-status-select');
-statusSelect.addEventListener('mousedown', (e) => {
+    getCurrentChapter() {
+        const project = this.getCurrentProject();
+        if (!project) return null;
+        return project.chapters.find(c => c.id === this.currentChapterId) || null;
+    }
+
+    updateWordCount() {
+        const chapter = this.getCurrentChapter();
+        if (!chapter) {
+            document.getElementById('wordCount').textContent = '0';
+            return;
+        }
+        const html = chapter.content || '';
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        const text = tempDiv.textContent || tempDiv.innerText || '';
+        const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+        chapter.wordCount = wordCount;
+        document.getElementById('wordCount').textContent = wordCount.toLocaleString('id-ID');
+    }
+
+    renderProjects() {
+        const projectList = document.getElementById('projectList');
+        if (!projectList) return;
+
+        projectList.innerHTML = '';
+
+        if (this.projects.length === 0) {
+            projectList.innerHTML = `
+                <div style="padding: 20px; text-align: center; color: var(--text-light);">
+                    <p>Belum ada project.</p>
+                    <p style="margin-top: 10px; font-size: 14px;">Buat project pertama Anda!</p>
+                </div>
+            `;
+            return;
+        }
+
+        this.projects.forEach(project => {
+            const totalWords = project.chapters.reduce((sum, chapter) => sum + (chapter.wordCount || 0), 0);
+            const chapterCount = project.chapters.length;
+
+            const projectItem = document.createElement('div');
+            projectItem.className = `project-item ${this.currentProjectId === project.id ? 'active' : ''}`;
+            projectItem.setAttribute('data-id', project.id);
+            projectItem.innerHTML = `
+                <div class="project-title">${project.title}</div>
+                <div class="project-meta">
+                    <span>${project.author}</span>
+                    <div class="project-stats">
+                        <span class="stat">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                            </svg>
+                            ${chapterCount}
+                        </span>
+                        <span class="stat">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2v10"></path>
+                                <path d="M18.5 7.5L12 14l-6.5-6.5"></path>
+                            </svg>
+                            ${totalWords.toLocaleString('id-ID')}
+                        </span>
+                    </div>
+                </div>
+            `;
+            
+            projectItem.addEventListener('click', () => {
+                this.currentProjectId = project.id;
+                this.currentChapterId = project.chapters.length > 0 ? project.chapters[0].id : null;
+                this.renderProjects();
+                this.renderChapters();
+                this.renderEditor();
+                document.getElementById('exportBtn').disabled = false;
+                document.getElementById('addChapterBtn').disabled = false;
+                document.getElementById('currentProjectTitle').textContent = project.title;
+            });
+            
+            projectItem.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                this.showProjectContextMenu(e, project);
+            });
+
+            projectList.appendChild(projectItem);
+        });
+    }
+
+    renderChapters() {
+        const chaptersList = document.getElementById('chaptersList');
+        const project = this.getCurrentProject();
+        
+        if (!project) {
+            chaptersList.innerHTML = '';
+            return;
+        }
+
+        chaptersList.innerHTML = '';
+
+        if (project.chapters.length === 0) {
+            chaptersList.innerHTML = `
+                <div style="padding: 20px; text-align: center; color: var(--text-light);">
+                    <p>Belum ada bab.</p>
+                    <p style="margin-top: 10px; font-size: 14px;">Tambahkan bab pertama Anda!</p>
+                </div>
+            `;
+            return;
+        }
+
+        project.chapters.forEach((chapter, index) => {
+            const chapterItem = document.createElement('div');
+            chapterItem.className = `chapter-item ${this.currentChapterId === chapter.id ? 'active' : ''}`;
+            chapterItem.setAttribute('data-id', chapter.id);
+            chapterItem.setAttribute('draggable', true);
+            chapterItem.innerHTML = `
+                <div class="chapter-title">Bab ${index + 1}: ${chapter.title}</div>
+                <div class="chapter-meta">
+                    <span>${chapter.wordCount || 0} kata</span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <select class="chapter-status-select" data-id="${chapter.id}" style="font-size: 11px; z-index: 1000; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; ${
+                            chapter.status === 'completed' ? 'background-color: #dcfce7; color: #16a34a;' :
+                            chapter.status === 'in-review' ? 'background-color: #fef3c7; color: #d97706;' :
+                            chapter.status === 'on-hold' ? 'background-color: #f3f4f6; color: #6b7280;' :
+                            'background-color: #dbeafe; color: #1d4ed8;'
+                        }">
+                            <option value="draft" ${chapter.status === 'draft' ? 'selected' : ''}>Draf</option>
+                            <option value="in-review" ${chapter.status === 'in-review' ? 'selected' : ''}>Perlu Revisi</option>
+                            <option value="completed" ${chapter.status === 'completed' ? 'selected' : ''}>Selesai</option>
+                            <option value="on-hold" ${chapter.status === 'on-hold' ? 'selected' : ''}>Ditunda</option>
+                        </select>
+                        <button class="btn-delete-chapter" data-id="${chapter.id}" title="Hapus Bab" style="background: none; border: none; cursor: pointer; padding: 2px; color: #ef4444; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            const statusSelect = chapterItem.querySelector('.chapter-status-select');
+            statusSelect.addEventListener('mousedown', (e) => {
                 e.stopPropagation();
             });
-statusSelect.addEventListener('click', (e) => {
+            statusSelect.addEventListener('click', (e) => {
                 e.stopPropagation();
             });
             
             statusSelect.addEventListener('change', async (e) => {
                 e.stopPropagation();
                 const newStatus = e.target.value;
-                const project = appState.getCurrentProject();
+                const project = this.getCurrentProject();
                 if (!project) return;
                 
                 const targetChapter = project.chapters.find(c => c.id === chapter.id);
                 if (targetChapter) {
                     targetChapter.status = newStatus;
                     targetChapter.updatedAt = new Date().toISOString();
-                    await appState.saveProject(project);
-                    appState.showToast(`Status bab "${chapter.title}" diubah menjadi: ${newStatus}`, 'success');
-                    
-                    // Memperbarui tampilan untuk mencerminkan perubahan status
-                    appState.renderChapters();
+                    await this.saveProject(project);
+                    this.showToast(`Status bab "${chapter.title}" diubah menjadi: ${newStatus}`, 'success');
+                    this.renderChapters();
                 }
             });
 
-// Tambahkan kode ini DI DALAM loop forEach chapter, SETELAH event listener statusSelect
-const deleteBtn = chapterItem.querySelector('.btn-delete-chapter');
-deleteBtn.addEventListener('click', async (e) => {
-    e.stopPropagation(); // agar tidak memicu klik bab
-    if (!confirm(`Hapus bab "${chapter.title}"?\nTindakan ini tidak dapat dibatalkan.`)) {
-        return;
-    }
-    const project = appState.getCurrentProject();
-    if (!project) return;
-    
-    const chapterIndex = project.chapters.findIndex(c => c.id === chapter.id);
-    if (chapterIndex > -1) {
-        project.chapters.splice(chapterIndex, 1);
-        await appState.saveProject(project);
-        
-        // Jika bab yang dihapus adalah bab yang sedang aktif, pindah ke bab lain
-        if (appState.currentChapterId === chapter.id) {
-            appState.currentChapterId = project.chapters.length > 0 ? project.chapters[0].id : null;
-        }
-        
-        appState.renderChapters();
-        appState.renderEditor();
-        appState.showToast(`Bab "${chapter.title}" berhasil dihapus`, 'success');
-    }
-});
-                    
-                    chapterItem.addEventListener('click', () => {
-                        this.currentChapterId = chapter.id;
-                        this.renderChapters();
-                        this.renderEditor();
-                    });
-                    
-                    // Drag and drop functionality
-                    chapterItem.addEventListener('dragstart', (e) => {
-                        e.dataTransfer.setData('text/plain', chapter.id);
-                        chapterItem.classList.add('dragging');
-                    });
-                    
-                    chapterItem.addEventListener('dragend', () => {
-                        chapterItem.classList.remove('dragging');
-                    });
-                    
-                    chapterItem.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        chapterItem.classList.add('drag-over');
-                    });
-                    
-                    chapterItem.addEventListener('dragleave', () => {
-                        chapterItem.classList.remove('drag-over');
-                    });
-                    
-                    chapterItem.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        chapterItem.classList.remove('drag-over');
-                        
-                        const draggedId = e.dataTransfer.getData('text/plain');
-                        if (draggedId === chapter.id) return;
-                        
-                        this.reorderChapters(draggedId, chapter.id);
-                    });
-
-                    chaptersList.appendChild(chapterItem);
-                });
-            }
-
-            async reorderChapters(draggedId, targetId) {
+            const deleteBtn = chapterItem.querySelector('.btn-delete-chapter');
+            deleteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (!confirm(`Hapus bab "${chapter.title}"?\nTindakan ini tidak dapat dibatalkan.`)) {
+                    return;
+                }
                 const project = this.getCurrentProject();
                 if (!project) return;
-
-                const draggedIndex = project.chapters.findIndex(c => c.id === draggedId);
-                const targetIndex = project.chapters.findIndex(c => c.id === targetId);
-
-                if (draggedIndex === -1 || targetIndex === -1) return;
-
-                // Reorder chapters
-                const draggedChapter = project.chapters.splice(draggedIndex, 1)[0];
-                project.chapters.splice(targetIndex, 0, draggedChapter);
-
-                // Save project
-                await this.saveProject(project);
-                this.renderChapters();
-                this.renderEditor();
-                this.renderChapters();
-            }
-
-            renderEditor() {
-                const editorArea = document.getElementById('editorArea');
-                const project = this.getCurrentProject();
-                const chapter = this.getCurrentChapter();
-
-                if (!project) {
-                    editorArea.innerHTML = `
-                        <div class="empty-state">
-                            <svg class="empty-state-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
-                                <path d="M2 17l10 5 10-5"></path>
-                                <path d="M2 12l10 5 10-5"></path>
-                            </svg>
-                            <h3 class="empty-state-title">Pilih atau Buat Project</h3>
-                            <p class="empty-state-description">Buat project baru atau pilih project yang sudah ada untuk mulai menulis novel Anda.</p>
-                            <button id="newProjectBtnMain" class="btn btn-primary">Buat Project Baru</button>
-                        </div>
-                    `;
-                    
-                    // Add event listener to the new button
-                    document.getElementById('newProjectBtnMain').addEventListener('click', () => {
-                        document.getElementById('newProjectModal').classList.add('active');
-                    });
-                    
-                    return;
-                }
-
-                if (!chapter) {
-                    editorArea.innerHTML = `
-                        <div class="empty-state">
-                            <svg class="empty-state-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="12" y1="5" x2="12" y2="19"></line>
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                            </svg>
-                            <h3 class="empty-state-title">Tambahkan Bab Pertama Anda</h3>
-                            <p class="empty-state-description">Novel Anda belum memiliki bab. Tambahkan bab pertama untuk mulai menulis.</p>
-                            <button id="addChapterBtnMain" class="btn btn-primary">Tambah Bab</button>
-                        </div>
-                    `;
-                    
-                    // Add event listener to the new button
-                    document.getElementById('addChapterBtnMain').addEventListener('click', () => {
-                        document.getElementById('newChapterModal').classList.add('active');
-                    });
-                    
-                    return;
-                }
-
-                editorArea.innerHTML = `
-                    <div class="editor-header">
-                        <input type="text" class="chapter-title-input" id="chapterTitleInput" value="${this.escapeHtml(chapter.title)}" placeholder="Judul Bab">
-                    </div>
-                    <div class="editor-toolbar">
-                        <div class="toolbar-group">
-                            <button class="toolbar-btn" data-action="bold" title="Bold (Ctrl+B)">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
-                                    <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
-                                </svg>
-                            </button>
-                            <button class="toolbar-btn" data-action="italic" title="Italic (Ctrl+I)">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="19" y1="4" x2="10" y2="4"></line>
-                                    <line x1="14" y1="20" x2="5" y2="20"></line>
-                                    <line x1="15" y1="4" x2="9" y2="20"></line>
-                                </svg>
-                            </button>
-                            <button class="toolbar-btn" data-action="underline" title="Underline (Ctrl+U)">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path>
-                                    <line x1="4" y1="21" x2="20" y2="21"></line>
-                                </svg>
-                            </button>
-                        </div>
-                        <div class="toolbar-group">
-                            <button class="toolbar-btn" data-action="h1" title="Heading 1">
-                                <span style="font-weight: bold; font-size: 14px;">H1</span>
-                            </button>
-                            <button class="toolbar-btn" data-action="h2" title="Heading 2">
-                                <span style="font-weight: bold; font-size: 13px;">H2</span>
-                            </button>
-                            <button class="toolbar-btn" data-action="h3" title="Heading 3">
-                                <span style="font-weight: bold; font-size: 12px;">H3</span>
-                            </button>
-                        </div>
-                        <div class="toolbar-group">
-                            <button class="toolbar-btn" data-action="ol" title="Ordered List">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="10" y1="6" x2="21" y2="6"></line>
-                                    <line x1="10" y1="12" x2="21" y2="12"></line>
-                                    <line x1="10" y1="18" x2="21" y2="18"></line>
-                                    <line x1="4" y1="6" x2="7" y2="6"></line>
-                                    <line x1="5" y1="12" x2="7" y2="12"></line>
-                                    <line x1="6" y1="18" x2="7" y2="18"></line>
-                                </svg>
-                            </button>
-                            <button class="toolbar-btn" data-action="ul" title="Unordered List">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <line x1="8" y1="6" x2="21" y2="6"></line>
-                                    <line x1="8" y1="12" x2="21" y2="12"></line>
-                                    <line x1="8" y1="18" x2="21" y2="18"></line>
-                                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="editor-content" contenteditable="true" id="editorContent">${chapter.content || ''}</div>
-                `;
-
-                // Set up title input handler
-                const titleInput = document.getElementById('chapterTitleInput');
-                titleInput.addEventListener('input', () => {
-                    this.updateChapterTitle(titleInput.value);
-                });
-
-                // Set up editor content handler
-                const editorContent = document.getElementById('editorContent');
-                editorContent.addEventListener('input', () => {
-                    this.updateChapterContent(editorContent.innerHTML);
-                    this.updateWordCount();
-                });
-
-                // Set up toolbar buttons
-                const toolbarButtons = document.querySelectorAll('.toolbar-btn');
-                toolbarButtons.forEach(button => {
-                    button.addEventListener('click', () => {
-                        const action = button.getAttribute('data-action');
-                        this.execCommand(action, editorContent);
-                        
-                        // Update button active state
-                        this.updateToolbarButtons(editorContent);
-                    });
-                });
-
-                // Keyboard shortcuts
-                editorContent.addEventListener('keydown', (e) => {
-                    if (e.ctrlKey || e.metaKey) {
-                        let command = null;
-                        switch (e.key.toLowerCase()) {
-                            case 'b':
-                                command = 'bold';
-                                break;
-                            case 'i':
-                                command = 'italic';
-                                break;
-                            case 'u':
-                                command = 'underline';
-                                break;
-                        }
-                        
-                        if (command) {
-                            e.preventDefault();
-                            this.execCommand(command, editorContent);
-                            this.updateToolbarButtons(editorContent);
-                        }
-                    }
-                });
-
-                // Update toolbar buttons based on current selection
-                editorContent.addEventListener('click', () => {
-                    this.updateToolbarButtons(editorContent);
-                });
-
-                editorContent.addEventListener('keyup', () => {
-                    this.updateToolbarButtons(editorContent);
-                });
-
-                // Focus the editor
-                editorContent.focus();
-                this.updateWordCount();
-            }
-
-            updateToolbarButtons(editor) {
-                const selection = window.getSelection();
-                if (!selection.rangeCount) return;
-
-                const parentElement = selection.anchorNode?.parentElement;
-                if (!parentElement) return;
-
-                // Update button states
-                const buttons = {
-                    'bold': document.querySelector('[data-action="bold"]'),
-                    'italic': document.querySelector('[data-action="italic"]'),
-                    'underline': document.querySelector('[data-action="underline"]'),
-                    'h1': document.querySelector('[data-action="h1"]'),
-                    'h2': document.querySelector('[data-action="h2"]'),
-                    'h3': document.querySelector('[data-action="h3"]')
-                };
-
-                // Reset all buttons
-                Object.values(buttons).forEach(btn => {
-                    if (btn) btn.classList.remove('active');
-                });
-
-                // Check formatting of current selection
-                const checkParent = (el) => {
-                    if (!el || el === editor) return null;
-                    
-                    if (el.tagName === 'STRONG' || el.tagName === 'B') {
-                        return 'bold';
-                    } else if (el.tagName === 'EM' || el.tagName === 'I') {
-                        return 'italic';
-                    } else if (el.tagName === 'U') {
-                        return 'underline';
-                    } else if (el.tagName === 'H1') {
-                        return 'h1';
-                    } else if (el.tagName === 'H2') {
-                        return 'h2';
-                    } else if (el.tagName === 'H3') {
-                        return 'h3';
-                    } else {
-                        return checkParent(el.parentElement);
-                    }
-                };
-
-                const format = checkParent(selection.anchorNode?.parentElement);
-                if (format && buttons[format]) {
-                    buttons[format].classList.add('active');
-                }
-            }
-
-            execCommand(action, editor) {
-                let command = action;
-                let value = null;
-
-                switch (action) {
-                    case 'h1':
-                    case 'h2':
-                    case 'h3':
-                        command = 'formatBlock';
-                        value = `<${action}>`;
-                        break;
-                    case 'ol':
-                        command = 'insertOrderedList';
-                        break;
-                    case 'ul':
-                        command = 'insertUnorderedList';
-                        break;
-                }
-
-                document.execCommand(command, false, value);
-                editor.focus();
-            }
-
-            updateChapterTitle(title) {
-                const project = this.getCurrentProject();
-                const chapter = this.getCurrentChapter();
                 
-                if (!project || !chapter) return;
-                
-                chapter.title = title;
-                this.saveProject(project);
-                this.renderChapters();
-                this.renderEditor();
-                this.renderChapters();
-            }
-
-            updateChapterContent(content) {
-                const project = this.getCurrentProject();
-                const chapter = this.getCurrentChapter();
-                
-                if (!project || !chapter) return;
-                
-                // Clear auto-save timer if exists
-                if (this.autoSaveTimer) {
-                    clearTimeout(this.autoSaveTimer);
-                }
-                
-                // Set new auto-save timer
-                this.autoSaveTimer = setTimeout(async () => {
-                    chapter.content = content;
+                const chapterIndex = project.chapters.findIndex(c => c.id === chapter.id);
+                if (chapterIndex > -1) {
+                    project.chapters.splice(chapterIndex, 1);
                     await this.saveProject(project);
-                    this.updateSaveStatus('Tersimpan');
-                }, 1000);
-                
-                this.updateSaveStatus('Menyimpan...');
-            }
-
-            updateSaveStatus(status) {
-                const saveStatus = document.getElementById('saveStatus');
-                saveStatus.textContent = status;
-                
-                if (status === 'Tersimpan') {
-                    setTimeout(() => {
-                        saveStatus.textContent = 'Siap';
-                    }, 2000);
-                }
-            }
-
-            showProjectContextMenu(event, project) {
-                // For simplicity, we'll show a confirmation dialog for delete
-                if (confirm(`Hapus project "${project.title}"?\n\nIni akan menghapus semua data project secara permanen.`)) {
-                    this.deleteProject(project.id);
-                    this.showToast('Project berhasil dihapus', 'success');
-                }
-            }
-
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            showToast(message, type = 'success') {
-                const toastContainer = document.getElementById('toastContainer');
-                
-                const toast = document.createElement('div');
-                toast.className = `toast ${type}`;
-                toast.innerHTML = `
-                    <div class="toast-content">
-                        <div class="toast-title">${type === 'success' ? 'Sukses' : 'Error'}</div>
-                        <div class="toast-message">${message}</div>
-                    </div>
-                    <button class="toast-close">&times;</button>
-                `;
-                
-                toastContainer.appendChild(toast);
-                
-                // Close button
-                toast.querySelector('.toast-close').addEventListener('click', () => {
-                    toastContainer.removeChild(toast);
-                });
-                
-                // Auto close after 5 seconds
-                setTimeout(() => {
-                    if (toastContainer.contains(toast)) {
-                        toastContainer.removeChild(toast);
+                    
+                    if (this.currentChapterId === chapter.id) {
+                        this.currentChapterId = project.chapters.length > 0 ? project.chapters[0].id : null;
                     }
-                }, 5000);
-            }
+                    
+                    this.renderChapters();
+                    this.renderEditor();
+                    this.showToast(`Bab "${chapter.title}" berhasil dihapus`, 'success');
+                }
+            });
+            
+            chapterItem.addEventListener('click', () => {
+                this.currentChapterId = chapter.id;
+                this.renderChapters();
+                this.renderEditor();
+            });
+            
+            chapterItem.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', chapter.id);
+                chapterItem.classList.add('dragging');
+            });
+            
+            chapterItem.addEventListener('dragend', () => {
+                chapterItem.classList.remove('dragging');
+            });
+            
+            chapterItem.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                chapterItem.classList.add('drag-over');
+            });
+            
+            chapterItem.addEventListener('dragleave', () => {
+                chapterItem.classList.remove('drag-over');
+            });
+            
+            chapterItem.addEventListener('drop', (e) => {
+                e.preventDefault();
+                chapterItem.classList.remove('drag-over');
+                
+                const draggedId = e.dataTransfer.getData('text/plain');
+                if (draggedId === chapter.id) return;
+                
+                this.reorderChapters(draggedId, chapter.id);
+            });
 
-            // Export to PDF
-async exportToPDF(options, previewMode = false) {
-    try {
+            chaptersList.appendChild(chapterItem);
+        });
+    }
+
+    async reorderChapters(draggedId, targetId) {
         const project = this.getCurrentProject();
+        if (!project) return;
+
+        const draggedIndex = project.chapters.findIndex(c => c.id === draggedId);
+        const targetIndex = project.chapters.findIndex(c => c.id === targetId);
+
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        const draggedChapter = project.chapters.splice(draggedIndex, 1)[0];
+        project.chapters.splice(targetIndex, 0, draggedChapter);
+
+        await this.saveProject(project);
+        this.renderChapters();
+        this.renderEditor();
+    }
+
+    renderEditor() {
+        const editorArea = document.getElementById('editorArea');
+        const project = this.getCurrentProject();
+        const chapter = this.getCurrentChapter();
+
         if (!project) {
-            this.showToast('Tidak ada project yang dipilih', 'error');
+            editorArea.innerHTML = `
+                <div class="empty-state">
+                    <svg class="empty-state-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                        <path d="M2 17l10 5 10-5"></path>
+                        <path d="M2 12l10 5 10-5"></path>
+                    </svg>
+                    <h3 class="empty-state-title">Pilih atau Buat Project</h3>
+                    <p class="empty-state-description">Buat project baru atau pilih project yang sudah ada untuk mulai menulis novel Anda.</p>
+                    <button id="newProjectBtnMain" class="btn btn-primary">Buat Project Baru</button>
+                </div>
+            `;
+            
+            document.getElementById('newProjectBtnMain').addEventListener('click', () => {
+                document.getElementById('newProjectModal').classList.add('active');
+            });
+            
             return;
         }
 
-        // Show loading state (untuk download saja)
-        let exportBtn, originalText;
-        if (!previewMode) {
-            exportBtn = document.getElementById('exportBtn');
-            originalText = exportBtn.innerHTML;
-            exportBtn.disabled = true;
-            exportBtn.innerHTML = '<span class="loading"><span class="spinner"></span> Membuat PDF...</span>';
-        }
-
-        // Create new jsPDF instance
-        const orientation = options.orientation || 'portrait';
-        const margin = parseFloat(options.margin) || 2;
-        const fontSize = parseInt(options.fontSize) || 12;
-        const doc = new jsPDF({
-            orientation: orientation,
-            unit: 'cm',
-            format: 'a4'
-        });
-
-        // Set font
-        let font = 'times';
-        switch (options.font) {
-            case 'Arial':
-                font = 'helvetica'; break;
-            case 'Courier':
-                font = 'courier'; break;
-            case 'Times':
-            default:
-                font = 'times'; break;
-        }
-
-        // Add title page
-        doc.setFont(font, 'bold');
-        doc.setFontSize(24);
-        doc.text(project.title, doc.internal.pageSize.width / 2, 8, { align: 'center' });
-        doc.setFontSize(16);
-        doc.setFont(font, 'normal');
-        doc.text(`oleh ${project.author}`, doc.internal.pageSize.width / 2, 10, { align: 'center' });
-        doc.setFontSize(12);
-        doc.text(`Genre: ${project.genre}`, doc.internal.pageSize.width / 2, 12, { align: 'center' });
-        if (project.description) {
-            doc.setFontSize(11);
-            doc.text(project.description, doc.internal.pageSize.width / 2, 14, { align: 'center', maxWidth: 15 });
-        }
-        doc.addPage();
-
-        // Table of contents
-        doc.setFont(font, 'bold');
-        doc.setFontSize(16);
-        doc.text('Daftar Isi', doc.internal.pageSize.width / 2, 3, { align: 'center' });
-        doc.setFont(font, 'normal');
-        doc.setFontSize(12);
-        let y = 5, lineHeight = 0.7;
-        project.chapters.forEach((chapter, index) => {
-            if (y > 25) { doc.addPage(); y = 3; }
-            doc.text(`${index + 1}. ${chapter.title}`, 2, y);
-            y += lineHeight;
-        });
-        doc.addPage();
-
-        // Content
-        const chaptersToExport = options.scope === 'current' && this.currentChapterId ?
-            project.chapters.filter(c => c.id === this.currentChapterId) : project.chapters;
-
-        chaptersToExport.forEach((chapter, chapterIndex) => {
-            doc.setFont(font, 'bold');
-            doc.setFontSize(16);
-            doc.text(`Bab ${chapterIndex + 1}: ${chapter.title}`, 2, 3);
-            doc.setFont(font, 'normal');
-            doc.setFontSize(fontSize);
-
-            let contentY = 4;
-            const contentMargin = margin;
-            const contentWidth = doc.internal.pageSize.width - 2 * contentMargin;
-
-            // Process HTML content for PDF
-            let content = chapter.content || '';
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-
-            let formattedContent = '';
-            const processNode = (node) => {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    if (node.textContent.trim()) {
-                        formattedContent += node.textContent + '\n';
-                    }
-                } else if (node.nodeType === Node.ELEMENT_NODE) {
-                    if (node.tagName === 'H1') {
-                        formattedContent += '\n' + node.textContent.toUpperCase() + '\n\n';
-                    } else if (node.tagName === 'H2') {
-                        formattedContent += '\n' + node.textContent + '\n\n';
-                    } else if (node.tagName === 'H3') {
-                        formattedContent += '\n' + node.textContent + '\n';
-                    } else if (node.tagName === 'P') {
-                        formattedContent += node.textContent + '\n\n';
-                    } else if (node.tagName === 'LI') {
-                        formattedContent += '• ' + node.textContent + '\n';
-                    } else if (node.tagName === 'OL') {
-                        let counter = 1;
-                        node.querySelectorAll('li').forEach(li => {
-                            formattedContent += counter + '. ' + li.textContent + '\n';
-                            counter++;
-                        });
-                        formattedContent += '\n';
-                    } else if (node.tagName === 'UL') {
-                        node.querySelectorAll('li').forEach(li => {
-                            formattedContent += '• ' + li.textContent + '\n';
-                        });
-                        formattedContent += '\n';
-                    } else {
-                        node.childNodes.forEach(processNode);
-                    }
-                }
-            };
-            tempDiv.childNodes.forEach(processNode);
-
-            const lines = doc.splitTextToSize(formattedContent, contentWidth);
-            lines.forEach(line => {
-                if (contentY > doc.internal.pageSize.height - contentMargin) {
-                    doc.addPage();
-                    contentY = contentMargin;
-                }
-                doc.text(line, contentMargin, contentY);
-                contentY += lineHeight;
+        if (!chapter) {
+            editorArea.innerHTML = `
+                <div class="empty-state">
+                    <svg class="empty-state-icon" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <h3 class="empty-state-title">Tambahkan Bab Pertama Anda</h3>
+                    <p class="empty-state-description">Novel Anda belum memiliki bab. Tambahkan bab pertama untuk mulai menulis.</p>
+                    <button id="addChapterBtnMain" class="btn btn-primary">Tambah Bab</button>
+                </div>
+            `;
+            
+            document.getElementById('addChapterBtnMain').addEventListener('click', () => {
+                document.getElementById('newChapterModal').classList.add('active');
             });
-            if (chapterIndex < chaptersToExport.length - 1) {
-                doc.addPage();
+            
+            return;
+        }
+
+        editorArea.innerHTML = `
+            <div class="editor-header">
+                <input type="text" class="chapter-title-input" id="chapterTitleInput" value="${this.escapeHtml(chapter.title)}" placeholder="Judul Bab">
+            </div>
+            <div class="editor-toolbar">
+                <div class="toolbar-group">
+                    <button class="toolbar-btn" data-action="bold" title="Bold (Ctrl+B)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+                            <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+                        </svg>
+                    </button>
+                    <button class="toolbar-btn" data-action="italic" title="Italic (Ctrl+I)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="19" y1="4" x2="10" y2="4"></line>
+                            <line x1="14" y1="20" x2="5" y2="20"></line>
+                            <line x1="15" y1="4" x2="9" y2="20"></line>
+                        </svg>
+                    </button>
+                    <button class="toolbar-btn" data-action="underline" title="Underline (Ctrl+U)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path>
+                            <line x1="4" y1="21" x2="20" y2="21"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="toolbar-group">
+                    <button class="toolbar-btn" data-action="h1" title="Heading 1">
+                        <span style="font-weight: bold; font-size: 14px;">H1</span>
+                    </button>
+                    <button class="toolbar-btn" data-action="h2" title="Heading 2">
+                        <span style="font-weight: bold; font-size: 13px;">H2</span>
+                    </button>
+                    <button class="toolbar-btn" data-action="h3" title="Heading 3">
+                        <span style="font-weight: bold; font-size: 12px;">H3</span>
+                    </button>
+                </div>
+                <div class="toolbar-group">
+                    <button class="toolbar-btn" data-action="ol" title="Ordered List">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="10" y1="6" x2="21" y2="6"></line>
+                            <line x1="10" y1="12" x2="21" y2="12"></line>
+                            <line x1="10" y1="18" x2="21" y2="18"></line>
+                            <line x1="4" y1="6" x2="7" y2="6"></line>
+                            <line x1="5" y1="12" x2="7" y2="12"></line>
+                            <line x1="6" y1="18" x2="7" y2="18"></line>
+                        </svg>
+                    </button>
+                    <button class="toolbar-btn" data-action="ul" title="Unordered List">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="8" y1="6" x2="21" y2="6"></line>
+                            <line x1="8" y1="12" x2="21" y2="12"></line>
+                            <line x1="8" y1="18" x2="21" y2="18"></line>
+                            <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                            <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                            <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="editor-content" contenteditable="true" id="editorContent">${chapter.content || ''}</div>
+        `;
+
+        const titleInput = document.getElementById('chapterTitleInput');
+        titleInput.addEventListener('input', () => {
+            this.updateChapterTitle(titleInput.value);
+        });
+
+        const editorContent = document.getElementById('editorContent');
+        editorContent.addEventListener('input', () => {
+            this.updateChapterContent(editorContent.innerHTML);
+            this.updateWordCount();
+        });
+
+        const toolbarButtons = document.querySelectorAll('.toolbar-btn');
+        toolbarButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const action = button.getAttribute('data-action');
+                this.execCommand(action, editorContent);
+                this.updateToolbarButtons(editorContent);
+            });
+        });
+
+        editorContent.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                let command = null;
+                switch (e.key.toLowerCase()) {
+                    case 'b':
+                        command = 'bold';
+                        break;
+                    case 'i':
+                        command = 'italic';
+                        break;
+                    case 'u':
+                        command = 'underline';
+                        break;
+                }
+                
+                if (command) {
+                    e.preventDefault();
+                    this.execCommand(command, editorContent);
+                    this.updateToolbarButtons(editorContent);
+                }
             }
         });
 
-        // --- Tambahkan nomor halaman otomatis ---
-        const pageCount = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.setFontSize(10);
-            doc.setFont(font, 'normal');
-            doc.text(
-                `Halaman ${i} dari ${pageCount}`,
-                doc.internal.pageSize.width / 2,
-                doc.internal.pageSize.height - 1,
-                { align: 'center' }
-            );
+        editorContent.addEventListener('click', () => {
+            this.updateToolbarButtons(editorContent);
+        });
+
+        editorContent.addEventListener('keyup', () => {
+            this.updateToolbarButtons(editorContent);
+        });
+
+        editorContent.focus();
+        this.updateWordCount();
+    }
+
+    updateToolbarButtons(editor) {
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+
+        const parentElement = selection.anchorNode?.parentElement;
+        if (!parentElement) return;
+
+        const buttons = {
+            'bold': document.querySelector('[data-action="bold"]'),
+            'italic': document.querySelector('[data-action="italic"]'),
+            'underline': document.querySelector('[data-action="underline"]'),
+            'h1': document.querySelector('[data-action="h1"]'),
+            'h2': document.querySelector('[data-action="h2"]'),
+            'h3': document.querySelector('[data-action="h3"]')
+        };
+
+        Object.values(buttons).forEach(btn => {
+            if (btn) btn.classList.remove('active');
+        });
+
+        const checkParent = (el) => {
+            if (!el || el === editor) return null;
+            
+            if (el.tagName === 'STRONG' || el.tagName === 'B') {
+                return 'bold';
+            } else if (el.tagName === 'EM' || el.tagName === 'I') {
+                return 'italic';
+            } else if (el.tagName === 'U') {
+                return 'underline';
+            } else if (el.tagName === 'H1') {
+                return 'h1';
+            } else if (el.tagName === 'H2') {
+                return 'h2';
+            } else if (el.tagName === 'H3') {
+                return 'h3';
+            } else {
+                return checkParent(el.parentElement);
+            }
+        };
+
+        const format = checkParent(selection.anchorNode?.parentElement);
+        if (format && buttons[format]) {
+            buttons[format].classList.add('active');
+        }
+    }
+
+    execCommand(action, editor) {
+        let command = action;
+        let value = null;
+
+        switch (action) {
+            case 'h1':
+            case 'h2':
+            case 'h3':
+                command = 'formatBlock';
+                value = `<${action}>`;
+                break;
+            case 'ol':
+                command = 'insertOrderedList';
+                break;
+            case 'ul':
+                command = 'insertUnorderedList';
+                break;
         }
 
-        const fileName = `${project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
+        document.execCommand(command, false, value);
+        editor.focus();
+    }
 
-        if (previewMode) {
-            // Preview: tampilkan PDF pada modal dan simpan doc untuk download
-            const blobURL = doc.output('bloburl');
-            document.getElementById('pdfPreviewFrame').src = blobURL;
-            document.getElementById('pdfPreviewModal').classList.add('active');
-            this._lastGeneratedDoc = doc;
-        } else {
-            doc.save(fileName);
-            this.showToast('PDF berhasil dibuat', 'success');
+    updateChapterTitle(title) {
+        const project = this.getCurrentProject();
+        const chapter = this.getCurrentChapter();
+        
+        if (!project || !chapter) return;
+        
+        chapter.title = title;
+        chapter.updatedAt = new Date().toISOString();
+        this.saveProject(project);
+        this.renderChapters();
+    }
+
+    updateChapterContent(content) {
+        const project = this.getCurrentProject();
+        const chapter = this.getCurrentChapter();
+        
+        if (!project || !chapter) return;
+        
+        if (this.autoSaveTimer) {
+            clearTimeout(this.autoSaveTimer);
         }
-    } catch (error) {
-        console.error('Error generating PDF:', error);
-        this.showToast('Gagal membuat PDF: ' + error.message, 'error');
-    } finally {
-        // Reset button state jika bukan preview
-        if (!previewMode) {
-            const exportBtn = document.getElementById('exportBtn');
-            if (exportBtn) {
-                exportBtn.disabled = false;
-                exportBtn.innerHTML = originalText;
+        
+        this.autoSaveTimer = setTimeout(async () => {
+            chapter.content = content;
+            chapter.updatedAt = new Date().toISOString();
+            await this.saveProject(project);
+            this.updateSaveStatus('Tersimpan');
+        }, 1000);
+        
+        this.updateSaveStatus('Menyimpan...');
+    }
+
+    updateSaveStatus(status) {
+        const saveStatus = document.getElementById('saveStatus');
+        if (saveStatus) {
+            saveStatus.textContent = status;
+            
+            if (status === 'Tersimpan') {
+                setTimeout(() => {
+                    saveStatus.textContent = 'Siap';
+                }, 2000);
             }
         }
     }
-}
 
-            // Import project from JSON
-            importProjectFromFile(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    
-                    reader.onload = (e) => {
-                        try {
-                            const projectData = JSON.parse(e.target.result);
-                            
-                            // Validate project structure
-                            if (!projectData.title || !projectData.author || !Array.isArray(projectData.chapters)) {
-                                throw new Error('File tidak valid: struktur project tidak sesuai');
-                            }
-                            
-                            // Generate new ID to avoid conflicts
-                            projectData.id = 'project_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                            
-                            // Ensure each chapter has an ID
-                            projectData.chapters = projectData.chapters.map(chapter => ({
-                                ...chapter,
-                                id: chapter.id || 'chapter_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
-                            }));
-                            
-                            // Save project
-                            this.saveProject(projectData)
-                                .then(() => {
-                                    this.showToast('Project berhasil diimpor', 'success');
-                                    resolve();
-                                })
-                                .catch(reject);
-                        } catch (error) {
-                            reject(error);
+    showProjectContextMenu(event, project) {
+        if (confirm(`Hapus project "${project.title}"?\n\nIni akan menghapus semua data project secara permanen.`)) {
+            this.deleteProject(project.id);
+            this.showToast('Project berhasil dihapus', 'success');
+        }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    addChapter(projectId, title = 'Bab Baru') {
+        const project = this.projects.find(p => p.id === projectId);
+        if (project) {
+            const newChapter = {
+                id: 'chapter_' + Date.now(),
+                title: title,
+                content: '',
+                status: 'draft',
+                wordCount: 0,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            project.chapters.push(newChapter);
+            this.currentChapterId = newChapter.id;
+            this.saveProject(project);
+            this.showToast('Bab baru berhasil ditambahkan', 'success');
+        }
+    }
+
+    deleteChapter(chapterId) {
+        const project = this.getCurrentProject();
+        if (project && project.chapters.length > 1) {
+            project.chapters = project.chapters.filter(c => c.id !== chapterId);
+            this.currentChapterId = project.chapters[0].id;
+            this.saveProject(project);
+            this.showToast('Bab berhasil dihapus', 'success');
+        } else {
+            this.showToast('Project harus memiliki setidaknya satu bab', 'error');
+        }
+    }
+
+    updateChapterTitle(chapterId, newTitle) {
+        const project = this.getCurrentProject();
+        const chapter = project.chapters.find(c => c.id === chapterId);
+        if (chapter) {
+            chapter.title = newTitle;
+            chapter.updatedAt = new Date().toISOString();
+            this.saveProject(project);
+        }
+    }
+
+    switchProject(projectId) {
+        this.currentProjectId = projectId;
+        const project = this.getCurrentProject();
+        if (project) {
+            this.currentChapterId = project.chapters[0].id;
+        }
+        this.renderProjects();
+        this.renderChapters();
+        this.renderEditor();
+        this.saveProject(project);
+    }
+
+    switchChapter(chapterId) {
+        this.currentChapterId = chapterId;
+        this.renderChapters();
+        this.renderEditor();
+        this.saveProject(this.getCurrentProject());
+    }
+
+    // Fungsi export PDF dari kode kedua
+    async exportToPDF(options, previewMode = false) {
+        try {
+            const project = this.getCurrentProject();
+            if (!project) {
+                this.showToast('Tidak ada project yang dipilih', 'error');
+                return;
+            }
+
+            let exportBtn, originalText;
+            if (!previewMode) {
+                exportBtn = document.getElementById('exportBtn');
+                originalText = exportBtn.innerHTML;
+                exportBtn.disabled = true;
+                exportBtn.innerHTML = '<span class="loading"><span class="spinner"></span> Membuat PDF...</span>';
+            }
+
+            const orientation = options.orientation || 'portrait';
+            const margin = parseFloat(options.margin) || 2;
+            const fontSize = parseInt(options.fontSize) || 12;
+            const doc = new jsPDF({
+                orientation: orientation,
+                unit: 'cm',
+                format: 'a4'
+            });
+
+            let font = 'times';
+            switch (options.font) {
+                case 'Arial':
+                    font = 'helvetica'; break;
+                case 'Courier':
+                    font = 'courier'; break;
+                case 'Times':
+                default:
+                    font = 'times'; break;
+            }
+
+            doc.setFont(font, 'bold');
+            doc.setFontSize(24);
+            doc.text(project.title, doc.internal.pageSize.width / 2, 8, { align: 'center' });
+            doc.setFontSize(16);
+            doc.setFont(font, 'normal');
+            doc.text(`oleh ${project.author}`, doc.internal.pageSize.width / 2, 10, { align: 'center' });
+            doc.setFontSize(12);
+            doc.text(`Genre: ${project.genre}`, doc.internal.pageSize.width / 2, 12, { align: 'center' });
+            if (project.description) {
+                doc.setFontSize(11);
+                doc.text(project.description, doc.internal.pageSize.width / 2, 14, { align: 'center', maxWidth: 15 });
+            }
+            doc.addPage();
+
+            doc.setFont(font, 'bold');
+            doc.setFontSize(16);
+            doc.text('Daftar Isi', doc.internal.pageSize.width / 2, 3, { align: 'center' });
+            doc.setFont(font, 'normal');
+            doc.setFontSize(12);
+            let y = 5, lineHeight = 0.7;
+            project.chapters.forEach((chapter, index) => {
+                if (y > 25) { doc.addPage(); y = 3; }
+                doc.text(`${index + 1}. ${chapter.title}`, 2, y);
+                y += lineHeight;
+            });
+            doc.addPage();
+
+            const chaptersToExport = options.scope === 'current' && this.currentChapterId ?
+                project.chapters.filter(c => c.id === this.currentChapterId) : project.chapters;
+
+            chaptersToExport.forEach((chapter, chapterIndex) => {
+                doc.setFont(font, 'bold');
+                doc.setFontSize(16);
+                doc.text(`Bab ${chapterIndex + 1}: ${chapter.title}`, 2, 3);
+                doc.setFont(font, 'normal');
+                doc.setFontSize(fontSize);
+
+                let contentY = 4;
+                const contentMargin = margin;
+                const contentWidth = doc.internal.pageSize.width - 2 * contentMargin;
+
+                let content = chapter.content || '';
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = content;
+
+                let formattedContent = '';
+                const processNode = (node) => {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        if (node.textContent.trim()) {
+                            formattedContent += node.textContent + '\n';
                         }
-                    };
-                    
-                    reader.onerror = () => {
-                        reject(new Error('Gagal membaca file'));
-                    };
-                    
-                    reader.readAsText(file);
+                    } else if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.tagName === 'H1') {
+                            formattedContent += '\n' + node.textContent.toUpperCase() + '\n\n';
+                        } else if (node.tagName === 'H2') {
+                            formattedContent += '\n' + node.textContent + '\n\n';
+                        } else if (node.tagName === 'H3') {
+                            formattedContent += '\n' + node.textContent + '\n';
+                        } else if (node.tagName === 'P') {
+                            formattedContent += node.textContent + '\n\n';
+                        } else if (node.tagName === 'LI') {
+                            formattedContent += '• ' + node.textContent + '\n';
+                        } else if (node.tagName === 'OL') {
+                            let counter = 1;
+                            node.querySelectorAll('li').forEach(li => {
+                                formattedContent += counter + '. ' + li.textContent + '\n';
+                                counter++;
+                            });
+                            formattedContent += '\n';
+                        } else if (node.tagName === 'UL') {
+                            node.querySelectorAll('li').forEach(li => {
+                                formattedContent += '• ' + li.textContent + '\n';
+                            });
+                            formattedContent += '\n';
+                        } else {
+                            node.childNodes.forEach(processNode);
+                        }
+                    }
+                };
+                tempDiv.childNodes.forEach(processNode);
+
+                const lines = doc.splitTextToSize(formattedContent, contentWidth);
+                lines.forEach(line => {
+                    if (contentY > doc.internal.pageSize.height - contentMargin) {
+                        doc.addPage();
+                        contentY = contentMargin;
+                    }
+                    doc.text(line, contentMargin, contentY);
+                    contentY += lineHeight;
                 });
+                if (chapterIndex < chaptersToExport.length - 1) {
+                    doc.addPage();
+                }
+            });
+
+            const pageCount = doc.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setFontSize(10);
+                doc.setFont(font, 'normal');
+                doc.text(
+                    `Halaman ${i} dari ${pageCount}`,
+                    doc.internal.pageSize.width / 2,
+                    doc.internal.pageSize.height - 1,
+                    { align: 'center' }
+                );
+            }
+
+            const fileName = `${project.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
+
+            if (previewMode) {
+                const blobURL = doc.output('bloburl');
+                document.getElementById('pdfPreviewFrame').src = blobURL;
+                document.getElementById('pdfPreviewModal').classList.add('active');
+                this._lastGeneratedDoc = doc;
+            } else {
+                doc.save(fileName);
+                this.showToast('PDF berhasil dibuat', 'success');
+            }
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            this.showToast('Gagal membuat PDF: ' + error.message, 'error');
+        } finally {
+            if (!previewMode) {
+                const exportBtn = document.getElementById('exportBtn');
+                if (exportBtn) {
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = originalText;
+                }
             }
         }
+    }
+
+    // Fungsi import project dari kode kedua
+    importProjectFromFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                try {
+                    const projectData = JSON.parse(e.target.result);
+                    
+                    if (!projectData.title || !projectData.author || !Array.isArray(projectData.chapters)) {
+                        throw new Error('File tidak valid: struktur project tidak sesuai');
+                    }
+                    
+                    projectData.id = 'project_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    
+                    projectData.chapters = projectData.chapters.map(chapter => ({
+                        ...chapter,
+                        id: chapter.id || 'chapter_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+                    }));
+                    
+                    this.saveProject(projectData)
+                        .then(() => {
+                            this.showToast('Project berhasil diimpor', 'success');
+                            resolve();
+                        })
+                        .catch(reject);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            
+            reader.onerror = () => {
+                reject(new Error('Gagal membaca file'));
+            };
+            
+            reader.readAsText(file);
+        });
+    }
+
+    // Fungsi update UI dari kode pertama (diadaptasi)
+    updateUI() {
+        this.renderProjects();
+        this.renderChapters();
+        this.renderEditor();
+    }
+
+    // Fungsi saveCurrentProject dari kode pertama
+    saveCurrentProject() {
+        const project = this.getCurrentProject();
+        if (project) {
+            const editorContent = document.getElementById('editorContent');
+            if (editorContent) {
+                const chapter = this.getCurrentChapter();
+                if (chapter) {
+                    chapter.content = editorContent.innerHTML;
+                }
+            }
+            this.saveProject(project);
+        }
+    }
+
+    // Fungsi updateCurrentProjectTitle dari kode pertama
+    updateCurrentProjectTitle(title) {
+        const project = this.getCurrentProject();
+        if (project) {
+            project.title = title;
+            project.updatedAt = new Date().toISOString();
+            this.updateUI();
+            this.saveProject(project);
+        }
+    }
+}
 
         // Initialize App
         const appState = new AppState();
