@@ -10,14 +10,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/dazep01/raanote/main/assets/pngwing.com.png" />
 <script type="module">
-  // Import the functions you need from the SDKs you need
+  // Import SDK yang dibutuhkan
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+  import { getFirestore } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js"; // ✅ Tambahkan ini
   import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-analytics.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
 
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
   const firebaseConfig = {
     apiKey: "AIzaSyBm-80_NaHSZgE6IjN7pUsL0LjI5cojBGU",
     authDomain: "raanote-72869.firebaseapp.com",
@@ -30,7 +27,11 @@
 
   // Initialize Firebase
   const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app); // ✅ Inisialisasi Firestore
   const analytics = getAnalytics(app);
+
+  // ✅ Ekspos `db` ke global scope agar bisa diakses di kode lain
+  window.db = db;
 </script>
     <style>
         :root {
