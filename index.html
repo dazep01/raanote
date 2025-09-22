@@ -1160,13 +1160,11 @@ async saveProjectToSupabase(project) {
     try {
         const existing = await supabaseFetch(`projects?id=eq.${encodeURIComponent(project.id)}`);
         if (existing && existing.length > 0) {
-            // Update jika sudah ada
             await supabaseFetch(`projects?id=eq.${encodeURIComponent(project.id)}`, {
                 method: 'PATCH',
                 body: project
             });
         } else {
-            // Insert jika baru
             await supabaseFetch('projects', {
                 method: 'POST',
                 body: project
@@ -1175,7 +1173,11 @@ async saveProjectToSupabase(project) {
         console.log("✅ Project tersimpan di Supabase:", project.id);
     } catch (error) {
         console.error("❌ Gagal simpan ke Supabase:", error);
-        this.showToast('Gagal menyimpan ke cloud', 'error');
+        let errorMessage = 'Gagal menyimpan ke cloud';
+        if (error.message) {
+            errorMessage += ': ' + error.message;
+        }
+        this.showToast(errorMessage, 'error');
     }
 }
 
