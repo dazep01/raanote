@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/dazep01/raanote/main/assets/pngwing.com.png" />
     <style>
         :root {
-            --primary: #cc9618;
+            --primary: #d2691e;
             --primary-light: #3b82f6;
             --primary-dark: #1d4ed8;
             --secondary: #64748b;
@@ -810,6 +810,44 @@
             outline: 2px solid #D35400;
             outline-offset: 2px;
         }
+        
+/* Tambahkan di section CSS yang sesuai */
+.sync-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.sync-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--success);
+    animation: pulse 2s infinite;
+}
+
+.sync-indicator.syncing {
+    background-color: var(--warning);
+    animation: spin 1s linear infinite;
+}
+
+.sync-indicator.error {
+    background-color: var(--danger);
+    animation: none;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Style untuk tombol sync */
+#syncBtn.syncing {
+    animation: spin 1s linear infinite;
+    color: var(--primary);
+}
     </style>
 </head>
 <body>
@@ -848,6 +886,24 @@
                     </button>
                     </div>
                 </div>
+              <hr style="margin: auto; margin-bottom: 10px;">
+                <div style="display: flex;">
+<!-- Di dalam .sidebar-header, setelah tombol newProjectBtn -->
+<button id="syncBtn" class="btn btn-outline btn-sm" title="Sync dengan Cloud" style="width: 40px; margin-right: 7px;">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 2v6h-6"></path>
+        <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+        <path d="M3 22v-6h6"></path>
+        <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+    </svg>
+</button>
+<!-- Di dalam .status-bar, setelah saveStatus -->
+<div id="syncStatus" class="sync-status">
+    <span class="sync-indicator"></span>
+  <span class="sync-text"><i>Cloud: Terhubung</i></span>
+</div>
+                </div>
+              <hr style="margin: 10px 0;">
                 <div class="project-list" id="projectList">
                     <!-- Project items will be inserted here -->
                 </div>
@@ -1278,6 +1334,118 @@ async loadInitialState() {
             }, 3000);
         }
     }
+    
+// Tambahkan method di class AppState
+async checkCloudConnection() {
+    try {
+        const response = await supabaseFetch('projects?limit=1');
+        this.updateSyncStatus('connected', 'Cloud: Terhubung');
+        return true;
+    } catch (error) {
+        this.updateSyncStatus('error', 'Cloud: Offline');
+        return false;
+    }
+}
+
+// Tambahkan fungsi uploadLocalChanges yang hilang
+async uploadLocalChanges(projects) {
+    // Upload perubahan lokal ke cloud
+    for (const project of projects) {
+        try {
+            await this.saveProjectToSupabase(project);
+        } catch (error) {
+            console.warn('Gagal upload project:', project.id, error);
+        }
+    }
+}
+
+// Perbaiki fungsi manualSync
+async manualSync() {
+    const syncBtn = document.getElementById('syncBtn');
+    const originalHTML = syncBtn.innerHTML;
+    
+    // Set status syncing
+    this.updateSyncStatus('syncing', 'Menyinkronkan...');
+    syncBtn.classList.add('syncing');
+    syncBtn.disabled = true;
+    
+    try {
+        // 1. Download data terbaru dari Supabase
+        const cloudProjects = await this.loadProjectsFromSupabase();
+        
+        // 2. Merge strategy: Prioritaskan data terbaru (berdasarkan updatedAt)
+        const mergedProjects = this.mergeProjects(this.projects, cloudProjects);
+        
+        // 3. Update local state
+        this.projects = mergedProjects;
+        
+        // 4. Upload perubahan lokal ke cloud (jika ada)
+        await this.uploadLocalChanges(mergedProjects);
+        
+        // 5. Update UI
+        this.renderProjects();
+        this.renderChapters();
+        this.renderEditor();
+        
+        this.updateSyncStatus('connected', 'Cloud: Tersinkron');
+        this.showToast('Data berhasil disinkronkan dengan cloud', 'success');
+        
+    } catch (error) {
+        this.updateSyncStatus('error', 'Cloud: Gagal sync');
+        this.showToast('Gagal sinkronisasi: ' + error.message, 'error');
+    } finally {
+        syncBtn.classList.remove('syncing');
+        syncBtn.disabled = false;
+        syncBtn.innerHTML = originalHTML;
+    }
+}
+
+
+// Logic untuk merge data lokal dan cloud
+mergeProjects(localProjects, cloudProjects) {
+    const merged = [];
+    const allProjects = [...localProjects, ...cloudProjects];
+    
+    // Group by project ID, pilih yang updatedAt terbaru
+    const projectMap = new Map();
+    
+    allProjects.forEach(project => {
+        const existing = projectMap.get(project.id);
+        if (!existing || new Date(project.updatedAt) > new Date(existing.updatedAt)) {
+            projectMap.set(project.id, project);
+        }
+    });
+    
+    return Array.from(projectMap.values());
+}
+
+updateSyncStatus(status, message) {
+    const indicator = document.querySelector('.sync-indicator');
+    const text = document.querySelector('.sync-text');
+    const syncBtn = document.getElementById('syncBtn');
+    
+    if (indicator) {
+        indicator.className = 'sync-indicator';
+        if (status === 'syncing') indicator.classList.add('syncing');
+        if (status === 'error') indicator.classList.add('error');
+    }
+    
+    if (text) text.textContent = message;
+}
+
+// Jika ditemukan conflict (data berbeda di local dan cloud)
+showSyncConflictModal(localProject, cloudProject) {
+    // Tampilkan modal pilihan: Keep Local, Use Cloud, atau Merge Manual
+    // Implementasi modal simple dengan confirm()
+    const userChoice = confirm(
+        `Conflict ditemukan untuk project "${localProject.title}"\n\n` +
+        `Lokal: Diubah ${new Date(localProject.updatedAt).toLocaleString()}\n` +
+        `Cloud: Diubah ${new Date(cloudProject.updatedAt).toLocaleString()}\n\n` +
+        `Gunakan versi cloud? (Cancel untuk tetap gunakan lokal)`
+    );
+    
+    return userChoice ? cloudProject : localProject;
+}
 
 
 async saveProject(project) {
@@ -1310,6 +1478,14 @@ async saveProject(project) {
             reject(error);
         }
     });
+        // Auto-sync ke cloud jika terhubung
+    if (await this.checkCloudConnection()) {
+        try {
+            await this.saveProjectToSupabase(project);
+        } catch (error) {
+            console.warn('Auto-sync failed, but local save succeeded');
+        }
+    }
 }
   
 async deleteProject(projectId) {
@@ -2403,6 +2579,19 @@ document.getElementById('exportJsonBtn').addEventListener('click', () => {
     document.body.removeChild(downloadAnchor);
     appState.showToast('Project berhasil diekspor ke JSON', 'success');
 });
+
+// Tambahkan di DOMContentLoaded event listeners
+document.getElementById('syncBtn').addEventListener('click', () => {
+    appState.manualSync();
+});
+
+// Auto-check connection saat app load
+appState.checkCloudConnection();
+
+// Periodic sync setiap 5 menit
+setInterval(() => {
+    appState.checkCloudConnection();
+}, 300000);
 
             // Close modals when clicking outside
             document.querySelectorAll('.modal-overlay').forEach(modal => {
