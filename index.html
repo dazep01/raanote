@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/dazep01/raanote/main/assets/pngwing.com.png" />
     <style>
         :root {
-            --primary: #783506;
+            --primary: #cc9618;
             --primary-light: #3b82f6;
             --primary-dark: #1d4ed8;
             --secondary: #64748b;
@@ -1089,16 +1089,18 @@
         const { jsPDF } = window.jspdf;
       
 // ========== SUPABASE CONFIG ==========
-const SUPABASE_URL = 'https://cnxxewfdtwbembrwnzho.supabase.co'; // 🔥 GANTI INI!
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNueHhld2ZkdHdiZW1icnduemhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1NTgwNTcsImV4cCI6MjA3NDEzNDA1N30.e2CJ_sO4OKcbTaK9bls0ZJIWv4iZdRN9tc4tZW9ra5I'; // 🔥 GANTI INI!
+const SUPABASE_URL = 'https://cnxxewfdtwbembrwnzho.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNueHhld2ZkdHdiZW1icnduemhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1NTgwNTcsImV4cCI6MjA3NDEzNDA1N30.e2CJ_sO4OKcbTaK9bls0ZJIWv4iZdRN9tc4tZW9ra5I';
 
-// Fungsi fetch universal untuk Supabase REST API
+// Fungsi fetch universal untuk Supabase REST API (versi robust)
 async function supabaseFetch(endpoint, options = {}) {
     const url = `${SUPABASE_URL}/rest/v1/${endpoint}`;
+    
     const headers = {
         'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
-        'Prefer': options.method === 'POST' || options.method === 'PATCH' ? 'return=representation' : undefined
+        'Prefer': 'return=representation'
     };
 
     const config = {
@@ -1110,13 +1112,27 @@ async function supabaseFetch(endpoint, options = {}) {
         config.body = JSON.stringify(options.body);
     }
 
-    const res = await fetch(url, config);
-    if (!res.ok) {
-        const error = await res.json();
-        throw new Error(`Supabase Error: ${res.status} - ${JSON.stringify(error)}`);
+    try {
+        console.log('📤 Request ke:', url, config);
+        
+        const res = await fetch(url, config);
+        const responseText = await res.text();
+        
+        console.log('📥 Response status:', res.status);
+        console.log('📥 Response text:', responseText);
+
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${responseText}`);
+        }
+
+        return responseText ? JSON.parse(responseText) : [];
+        
+    } catch (error) {
+        console.error('❌ Fetch error:', error);
+        throw error;
     }
-    return res.json();
 }
+
 
 class AppState {
     constructor() {
@@ -1128,9 +1144,25 @@ class AppState {
         this.initDatabase();
     }
 
-initDatabase() {
-    // Supabase is our primary storage. No complex IndexedDB setup needed.
-    console.log("Intialized: Using Supabase as primary storage.");
+async testSupabaseConnection() {
+    try {
+        console.log('🧪 Testing Supabase connection...');
+        const testResult = await supabaseFetch('projects?limit=1');
+        console.log('✅ Supabase connection test passed');
+        return true;
+    } catch (error) {
+        console.error('❌ Supabase connection test failed:', error);
+        return false;
+    }
+}
+
+// Di dalam initDatabase():
+async initDatabase() {
+    const connectionOk = await this.testSupabaseConnection();
+    if (!connectionOk) {
+        this.showToast('Koneksi ke cloud gagal, menggunakan penyimpanan lokal', 'warning');
+    }
+    console.log("Initialized: Using Supabase as primary storage.");
     return Promise.resolve();
 }
 
@@ -1158,37 +1190,54 @@ initDatabase() {
 // Simpan project ke Supabase
 async saveProjectToSupabase(project) {
     try {
-        const existing = await supabaseFetch(`projects?id=eq.${encodeURIComponent(project.id)}`);
+        console.log('💾 Menyimpan project:', project);
+        
+        // Pastikan data sesuai struktur tabel
+        const projectData = {
+            id: project.id,
+            title: project.title,
+            author: project.author || 'Penulis',
+            genre: project.genre || 'Fiksi',
+            description: project.description || '',
+            chapters: project.chapters || [],
+            created_at: project.createdAt || new Date().toISOString(),
+            updated_at: project.updatedAt || new Date().toISOString()
+        };
+
+        // Cek apakah project sudah ada
+        const existing = await supabaseFetch(`projects?id=eq.${project.id}`);
+        
         if (existing && existing.length > 0) {
-            await supabaseFetch(`projects?id=eq.${encodeURIComponent(project.id)}`, {
+            // Update existing
+            await supabaseFetch(`projects?id=eq.${project.id}`, {
                 method: 'PATCH',
-                body: project
+                body: projectData
             });
+            console.log("✅ Project updated di Supabase");
         } else {
+            // Insert new
             await supabaseFetch('projects', {
                 method: 'POST',
-                body: project
+                body: projectData
             });
+            console.log("✅ Project created di Supabase");
         }
-        console.log("✅ Project tersimpan di Supabase:", project.id);
+        
     } catch (error) {
         console.error("❌ Gagal simpan ke Supabase:", error);
-        let errorMessage = 'Gagal menyimpan ke cloud';
-        if (error.message) {
-            errorMessage += ': ' + error.message;
-        }
-        this.showToast(errorMessage, 'error');
+        throw error; // Re-throw agar bisa ditangkap di caller
     }
 }
 
 // Muat semua project dari Supabase
 async loadProjectsFromSupabase() {
     try {
+        console.log('📥 Memuat projects dari Supabase...');
         const projects = await supabaseFetch('projects?order=created_at.desc');
-        return projects;
+        console.log('📥 Projects loaded:', projects);
+        return Array.isArray(projects) ? projects : [];
     } catch (error) {
         console.error("❌ Gagal muat dari Supabase:", error);
-        this.showToast('Gagal memuat dari cloud', 'error');
         return [];
     }
 }
@@ -1230,95 +1279,68 @@ async loadInitialState() {
         }
     }
 
-    async loadProjects() {
-        return new Promise((resolve, reject) => {
-            if (!this.db) {
-                reject('Database not initialized');
-                return;
+
+async saveProject(project) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Update local array
+            const index = this.projects.findIndex(p => p.id === project.id);
+            if (index > -1) {
+                this.projects[index] = project;
+            } else {
+                this.projects.push(project);
             }
 
-            const transaction = this.db.transaction(['projects'], 'readonly');
-            const store = transaction.objectStore('projects');
-            const request = store.getAll();
+            // Save to local storage
+            this.saveStateToIndexedDB();
 
-            request.onsuccess = () => {
-                this.projects = request.result || [];
-                this.renderProjects();
-                resolve();
-            };
-
-            request.onerror = () => {
-                reject(request.error);
-            };
-        });
-    }
-
-    async saveProject(project) {
-        return new Promise((resolve, reject) => {
-            if (!this.db) {
-                reject('Database not initialized');
-                return;
+            // Try to save to Supabase
+            try {
+                await this.saveProjectToSupabase(project);
+            } catch (supabaseError) {
+                console.warn('⚠️ Gagal simpan ke cloud, tetap simpan ke lokal:', supabaseError);
+                this.showToast('Disimpan secara lokal (cloud offline)', 'warning');
             }
 
-            const transaction = this.db.transaction(['projects'], 'readwrite');
-            const store = transaction.objectStore('projects');
-            const request = store.put(project);
+            this.renderProjects();
+            resolve();
+            
+        } catch (error) {
+            console.error("Error in saveProject:", error);
+            reject(error);
+        }
+    });
+}
+  
+async deleteProject(projectId) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Hapus dari array lokal
+            this.projects = this.projects.filter(p => p.id !== projectId);
 
-            request.onsuccess = () => {
-                const index = this.projects.findIndex(p => p.id === project.id);
-                if (index > -1) {
-                    this.projects[index] = project;
-                } else {
-                    this.projects.push(project);
-                }
-                this.renderProjects();
-                
-                // Simpan ke semua storage
-                this.saveStateToIndexedDB();
-                this.saveProjectToSupabase(project);
-                
-                resolve();
-            };
-
-            request.onerror = () => {
-                reject(request.error);
-            };
-        });
-    }
-
-    async deleteProject(projectId) {
-        return new Promise((resolve, reject) => {
-            if (!this.db) {
-                reject('Database not initialized');
-                return;
+            // Jika project yang dihapus sedang aktif, reset
+            if (this.currentProjectId === projectId) {
+                this.currentProjectId = null;
+                this.currentChapterId = null;
+                this.renderEditor();
             }
 
-            const transaction = this.db.transaction(['projects'], 'readwrite');
-            const store = transaction.objectStore('projects');
-            const request = store.delete(projectId);
+            // Simpan ke fallback lokal
+            this.saveStateToIndexedDB();
 
-            request.onsuccess = () => {
-                this.projects = this.projects.filter(p => p.id !== projectId);
-                this.renderProjects();
-                
-                if (this.currentProjectId === projectId) {
-                    this.currentProjectId = null;
-                    this.currentChapterId = null;
-                    this.renderEditor();
-                }
-                
-                // Hapus dari semua storage
-                this.saveStateToIndexedDB();
-                this.deleteProjectFromSupabase(projectId);
-                
-                resolve();
-            };
+            // Hapus dari Supabase
+            await this.deleteProjectFromSupabase(projectId);
 
-            request.onerror = () => {
-                reject(request.error);
-            };
-        });
-    }
+            // Render ulang daftar project
+            this.renderProjects();
+
+            resolve();
+        } catch (error) {
+            console.error("Error in deleteProject:", error);
+            reject(error);
+        }
+    });
+}
 
     createProject(title, author = 'Penulis', genre = 'Fiksi', description = '') {
         const newProject = {
@@ -2242,7 +2264,7 @@ async loadInitialState() {
                     appState.showToast('Project berhasil dibuat', 'success');
                 } catch (error) {
                     console.error('Error creating project:', error);
-                    alert('Gagal membuat project: ' + error.message);
+                    alert('Gagal membuat project: ' + (error.message || error.toString()));
                 }
             });
 
