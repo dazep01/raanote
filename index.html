@@ -9,33 +9,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/dazep01/raanote/main/assets/pngwing.com.png" />
-<script type="module">
-  // Import SDK yang dibutuhkan
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-  import { getFirestore } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js"; // ✅ Tambahkan ini
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-analytics.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyBm-80_NaHSZgE6IjN7pUsL0LjI5cojBGU",
-    authDomain: "raanote-72869.firebaseapp.com",
-    projectId: "raanote-72869",
-    storageBucket: "raanote-72869.firebasestorage.app",
-    messagingSenderId: "652418989145",
-    appId: "1:652418989145:web:a49962532d9a2f54f24548",
-    measurementId: "G-L189K1R010"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app); // ✅ Inisialisasi Firestore
-  const analytics = getAnalytics(app);
-
-  // ✅ Ekspos `db` ke global scope agar bisa diakses di kode lain
-  window.db = db;
-</script>
     <style>
         :root {
-            --primary: #D35400;
+            --primary: #783506;
             --primary-light: #3b82f6;
             --primary-dark: #1d4ed8;
             --secondary: #64748b;
@@ -1111,6 +1087,36 @@
     <script>
         // Initialize jspdf
         const { jsPDF } = window.jspdf;
+      
+// ========== SUPABASE CONFIG ==========
+const SUPABASE_URL = 'https://cnxxewfdtwbembrwnzho.supabase.co'; // 🔥 GANTI INI!
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNueHhld2ZkdHdiZW1icnduemhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1NTgwNTcsImV4cCI6MjA3NDEzNDA1N30.e2CJ_sO4OKcbTaK9bls0ZJIWv4iZdRN9tc4tZW9ra5I'; // 🔥 GANTI INI!
+
+// Fungsi fetch universal untuk Supabase REST API
+async function supabaseFetch(endpoint, options = {}) {
+    const url = `${SUPABASE_URL}/rest/v1/${endpoint}`;
+    const headers = {
+        'apikey': SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': options.method === 'POST' || options.method === 'PATCH' ? 'return=representation' : undefined
+    };
+
+    const config = {
+        method: options.method || 'GET',
+        headers: headers,
+    };
+
+    if (options.body) {
+        config.body = JSON.stringify(options.body);
+    }
+
+    const res = await fetch(url, config);
+    if (!res.ok) {
+        const error = await res.json();
+        throw new Error(`Supabase Error: ${res.status} - ${JSON.stringify(error)}`);
+    }
+    return res.json();
+}
 
 class AppState {
     constructor() {
@@ -1122,31 +1128,11 @@ class AppState {
         this.initDatabase();
     }
 
-    async initDatabase() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open('RaaNoteDB', 1);
-            
-            request.onerror = () => {
-                console.error('Error opening database');
-                reject(request.error);
-            };
-            
-            request.onsuccess = () => {
-                this.db = request.result;
-                this.loadProjects();
-                resolve();
-            };
-            
-            request.onupgradeneeded = (event) => {
-                const db = event.target.result;
-                
-                if (!db.objectStoreNames.contains('projects')) {
-                    const projectStore = db.createObjectStore('projects', { keyPath: 'id' });
-                    projectStore.createIndex('title', 'title', { unique: false });
-                }
-            };
-        });
-    }
+initDatabase() {
+    // Supabase is our primary storage. No complex IndexedDB setup needed.
+    console.log("Intialized: Using Supabase as primary storage.");
+    return Promise.resolve();
+}
 
     // Fungsi untuk memuat project dari IndexedDB (cadangan lokal)
     loadStateFromIndexedDB() {
@@ -1169,46 +1155,66 @@ class AppState {
         localStorage.setItem('raanote-state', JSON.stringify(stateToSave));
     }
 
-    // Fungsi untuk MENYIMPAN ke FIRESTORE
-    async saveToFirestore(project) {
-        try {
-            const projectRef = db.collection("projects").doc(project.id);
-            await projectRef.set(project);
-            this.showToast('Project berhasil disimpan ke Firestore', 'success');
-        } catch (error) {
-            console.error("Error saving to Firestore: ", error);
-            this.showToast('Gagal menyimpan project ke Firestore', 'error');
-        }
-    }
-
-    // Fungsi untuk MEMUAT dari FIRESTORE
-    async loadFromFirestore() {
-        try {
-            const snapshot = await db.collection("projects").get();
-            const projects = [];
-            snapshot.forEach(doc => {
-                projects.push(doc.data());
+// Simpan project ke Supabase
+async saveProjectToSupabase(project) {
+    try {
+        const existing = await supabaseFetch(`projects?id=eq.${encodeURIComponent(project.id)}`);
+        if (existing && existing.length > 0) {
+            // Update jika sudah ada
+            await supabaseFetch(`projects?id=eq.${encodeURIComponent(project.id)}`, {
+                method: 'PATCH',
+                body: project
             });
-            return projects;
-        } catch (error) {
-            console.error("Error loading from Firestore: ", error);
-            this.showToast('Gagal memuat project dari Firestore', 'error');
-            return [];
+        } else {
+            // Insert jika baru
+            await supabaseFetch('projects', {
+                method: 'POST',
+                body: project
+            });
         }
+        console.log("✅ Project tersimpan di Supabase:", project.id);
+    } catch (error) {
+        console.error("❌ Gagal simpan ke Supabase:", error);
+        this.showToast('Gagal menyimpan ke cloud', 'error');
     }
+}
 
-    // Fungsi utama untuk memuat data saat aplikasi dimulai
-    async loadInitialState() {
-        // Coba muat dari Firestore terlebih dahulu
-        let projects = await this.loadFromFirestore();
-        if (projects.length === 0) {
-            // Jika tidak ada data di Firestore, coba muat dari IndexedDB
-            this.showToast('Memuat dari penyimpanan lokal...', 'info');
-            projects = this.loadStateFromIndexedDB();
-        }
-        this.projects = projects;
-        this.renderProjects();
+// Muat semua project dari Supabase
+async loadProjectsFromSupabase() {
+    try {
+        const projects = await supabaseFetch('projects?order=created_at.desc');
+        return projects;
+    } catch (error) {
+        console.error("❌ Gagal muat dari Supabase:", error);
+        this.showToast('Gagal memuat dari cloud', 'error');
+        return [];
     }
+}
+
+// Hapus project dari Supabase
+async deleteProjectFromSupabase(projectId) {
+    try {
+        await supabaseFetch(`projects?id=eq.${encodeURIComponent(projectId)}`, {
+            method: 'DELETE'
+        });
+        console.log("✅ Project dihapus dari Supabase:", projectId);
+    } catch (error) {
+        console.error("❌ Gagal hapus dari Supabase:", error);
+        this.showToast('Gagal menghapus dari cloud', 'error');
+    }
+}
+
+async loadInitialState() {
+    // ✅ COBA MUAT DARI SUPABASE DULU
+    let projects = await this.loadProjectsFromSupabase();
+    if (projects.length === 0) {
+        // Jika tidak ada di cloud, muat dari lokal
+        this.showToast('Memuat dari penyimpanan lokal...', 'info');
+        projects = this.loadStateFromIndexedDB();
+    }
+    this.projects = projects;
+    this.renderProjects();
+}
 
     showToast(message, type = 'info') {
         const toast = document.getElementById('toast');
@@ -1267,7 +1273,7 @@ class AppState {
                 
                 // Simpan ke semua storage
                 this.saveStateToIndexedDB();
-                this.saveToFirestore(project);
+                this.saveProjectToSupabase(project);
                 
                 resolve();
             };
@@ -1301,6 +1307,7 @@ class AppState {
                 
                 // Hapus dari semua storage
                 this.saveStateToIndexedDB();
+                this.deleteProjectFromSupabase(projectId);
                 
                 resolve();
             };
