@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RaaNote Library - Perpustakaan Digital</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/dazep01/raanote/main/assets/pngwing.com.png" />
+    <style>
+        :root {
+            --primary: #d2691e;
+            --primary-light: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --secondary: #64748b;
+            --secondary-light: #94a3b8;
+            --background: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --transition: all 0.2s ease-in-out;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .library-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .library-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo img {
+            width: 40px;
+            height: auto;
+        }
+
+        .back-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 1px solid var(--border);
+            background-color: var(--surface);
+            color: var(--text);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-btn:hover {
+            background-color: var(--background);
+        }
+
+        .library-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text);
+        }
+
+        .projects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .project-card {
+            background-color: var(--surface);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: var(--transition);
+            cursor: pointer;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .project-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .project-cover {
+            height: 180px;
+            background: linear-gradient(135deg, var(--primary-light), var(--primary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 48px;
+            font-weight: 700;
+        }
+
+        .project-info {
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .project-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .project-author {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+
+        .project-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-top: auto;
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .project-stats {
+            display: flex;
+            gap: 10px;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--text-light);
+        }
+
+        .empty-state-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 24px;
+            color: var(--primary);
+        }
+
+        .empty-state-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text);
+        }
+
+        .empty-state-description {
+            margin-bottom: 24px;
+            max-width: 500px;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: var(--transition);
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .reader-modal {
+            background-color: var(--surface);
+            border-radius: 10px;
+            width: 95%;
+            max-width: 900px;
+            height: 90vh;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            transform: translateY(-20px);
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-overlay.active .reader-modal {
+            transform: translateY(0);
+        }
+
+        .reader-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--surface);
+        }
+
+        .reader-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .reader-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-light);
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+        }
+
+        .reader-close:hover {
+            background-color: var(--background);
+            color: var(--danger);
+        }
+
+        .reader-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .chapters-sidebar {
+            width: 250px;
+            background-color: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .chapters-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .chapters-list {
+            padding: 8px 0;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .chapter-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: var(--transition);
+            border-left: 3px solid transparent;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .chapter-item:hover {
+            background-color: var(--background);
+        }
+
+        .chapter-item.active {
+            border-left-color: var(--primary);
+            background-color: rgba(37, 99, 235, 0.05);
+        }
+
+        .chapter-title {
+            font-weight: 500;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chapter-meta {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .reader-area {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background-color: var(--surface);
+        }
+
+        .novel-cover {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .novel-title {
+            font-family: 'Source Serif Pro', serif;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--text);
+        }
+
+        .novel-author {
+            font-size: 18px;
+            color: var(--text-light);
+            margin-bottom: 20px;
+        }
+
+        .novel-meta {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            font-size: 14px;
+            color: var(--text-light);
+        }
+
+        .chapter-content {
+            font-family: 'Source Serif Pro', serif;
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--text);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .chapter-content h1 {
+            font-size: 2em;
+            margin: 0.67em 0;
+            font-weight: bold;
+        }
+
+        .chapter-content h2 {
+            font-size: 1.5em;
+            margin: 0.83em 0;
+            font-weight: bold;
+        }
+
+        .chapter-content h3 {
+            font-size: 1.17em;
+            margin: 1em 0;
+            font-weight: bold;
+        }
+
+        .chapter-content p {
+            margin: 1em 0;
+            text-align: justify;
+        }
+
+        .chapter-content strong {
+            font-weight: bold;
+        }
+
+        .chapter-content em {
+            font-style: italic;
+        }
+
+        .chapter-content u {
+            text-decoration: underline;
+        }
+
+        .chapter-content ol,
+        .chapter-content ul {
+            margin: 1em 0;
+            padding-left: 2em;
+        }
+
+        .chapter-content li {
+            margin: 0.5em 0;
+        }
+
+        .reader-controls {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--surface);
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--background);
+        }
+
+        .reader-nav {
+            display: flex;
+            gap: 10px;
+        }
+
+        .reader-nav button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .projects-grid {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            }
+            
+            .reader-modal {
+                width: 98%;
+                height: 95vh;
+            }
+            
+            .reader-content {
+                flex-direction: column;
+            }
+            
+            .chapters-sidebar {
+                width: 100%;
+                height: 200px;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            
+            .reader-area {
+                padding: 20px;
+            }
+            
+            .novel-title {
+                font-size: 24px;
+            }
+            
+            .chapter-content {
+                font-size: 16px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .library-header {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+            
+            .projects-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .reader-header {
+                padding: 15px;
+            }
+            
+            .reader-area {
+                padding: 15px;
+            }
+            
+            .novel-title {
+                font-size: 20px;
+            }
+            
+            .chapter-content {
+                font-size: 15px;
+                line-height: 1.6;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="library-container">
+        <header class="library-header">
+            <div class="logo">
+                <img src="https://raw.githubusercontent.com/dazep01/raanote/main/assets/pngwing.com.png" alt="RaaNote Logo">
+                RaaNote Library
+            </div>
+            <a href="index.html" class="back-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 12H5"></path>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                Kembali ke Editor
+            </a>
+        </header>
+
+        <h1 class="library-title">Perpustakaan Digital</h1>
+
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="Cari judul novel atau penulis...">
+        </div>
+
+        <div class="projects-grid" id="projectsGrid">
+            <!-- Project cards will be inserted here -->
+        </div>
+
+        <div id="loadingState" class="loading">
+            <div class="spinner"></div>
+        </div>
+
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <svg class="empty-state-icon" xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+            </svg>
+            <h3 class="empty-state-title">Tidak Ada Novel</h3>
+            <p class="empty-state-description">Belum ada novel yang tersimpan di perpustakaan. Kembali ke editor untuk membuat novel pertama Anda.</p>
+            <a href="index.html" class="btn btn-primary">Buat Novel</a>
+        </div>
+    </div>
+
+    <!-- Reader Modal -->
+    <div class="modal-overlay" id="readerModal">
+        <div class="reader-modal">
+            <div class="reader-header">
+                <h2 class="reader-title" id="readerTitle">Judul Novel</h2>
+                <button class="reader-close" id="readerClose">
+                    &times;
+                </button>
+            </div>
+            <div class="reader-content">
+                <aside class="chapters-sidebar">
+                    <div class="chapters-header">Daftar Bab</div>
+                    <div class="chapters-list" id="chaptersList">
+                        <!-- Chapter items will be inserted here -->
+                    </div>
+                </aside>
+                <div class="reader-area" id="readerArea">
+                    <!-- Novel content will be inserted here -->
+                </div>
+            </div>
+            <div class="reader-controls">
+                <div class="reader-nav">
+                    <button class="btn btn-outline" id="prevChapter" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                        Bab Sebelumnya
+                    </button>
+                    <button class="btn btn-outline" id="nextChapter">
+                        Bab Selanjutnya
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                </div>
+                <button class="btn btn-primary" id="closeReader">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Konfigurasi Supabase
+        const SUPABASE_URL = 'https://cnxxewfdtwbembrwnzho.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNueHhld2ZkdHdiZW1icnduemhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1NTgwNTcsImV4cCI6MjA3NDEzNDA1N30.e2CJ_sO4OKcbTaK9bls0ZJIWv4iZdRN9tc4tZW9ra5I';
+
+        // Fungsi untuk mengambil data dari Supabase
+        async function supabaseFetch(endpoint, options = {}) {
+            const url = `${SUPABASE_URL}/rest/v1/${endpoint}`;
+            
+            const headers = {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+            };
+
+            const config = {
+                method: options.method || 'GET',
+                headers: headers,
+            };
+
+            if (options.body) {
+                config.body = JSON.stringify(options.body);
+            }
+
+            try {
+                const res = await fetch(url, config);
+                const responseText = await res.text();
+                
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${responseText}`);
+                }
+
+                return responseText ? JSON.parse(responseText) : [];
+            } catch (error) {
+                console.error('Fetch error:', error);
+                throw error;
+            }
+        }
+
+        // Kelas untuk mengelola perpustakaan
+        class LibraryManager {
+            constructor() {
+                this.projects = [];
+                this.currentProject = null;
+                this.currentChapterIndex = 0;
+                this.filteredProjects = [];
+            }
+
+            // Memuat semua project dari Supabase
+            async loadProjects() {
+                try {
+                    document.getElementById('loadingState').style.display = 'flex';
+                    document.getElementById('emptyState').style.display = 'none';
+                    
+                    const projects = await supabaseFetch('projects?order=created_at.desc');
+                    this.projects = Array.isArray(projects) ? projects : [];
+                    this.filteredProjects = [...this.projects];
+                    
+                    this.renderProjects();
+                    
+                    document.getElementById('loadingState').style.display = 'none';
+                    
+                    if (this.projects.length === 0) {
+                        document.getElementById('emptyState').style.display = 'flex';
+                    }
+                } catch (error) {
+                    console.error('Gagal memuat project:', error);
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('emptyState').style.display = 'flex';
+                }
+            }
+
+            // Render daftar project
+            renderProjects() {
+                const projectsGrid = document.getElementById('projectsGrid');
+                projectsGrid.innerHTML = '';
+
+                this.filteredProjects.forEach(project => {
+                    const totalWords = project.chapters ? 
+                        project.chapters.reduce((sum, chapter) => sum + (chapter.wordCount || 0), 0) : 0;
+                    const chapterCount = project.chapters ? project.chapters.length : 0;
+                    
+                    const projectCard = document.createElement('div');
+                    projectCard.className = 'project-card';
+                    projectCard.innerHTML = `
+                        <div class="project-cover">
+                            ${project.title.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="project-info">
+                            <h3 class="project-title">${project.title}</h3>
+                            <div class="project-author">oleh ${project.author || 'Penulis'}</div>
+                            <div class="project-meta">
+                                <span>${project.genre || 'Fiksi'}</span>
+                                <div class="project-stats">
+                                    <span class="stat">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                                        </svg>
+                                        ${chapterCount} bab
+                                    </span>
+                                    <span class="stat">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M12 2v10"></path>
+                                            <path d="M18.5 7.5L12 14l-6.5-6.5"></path>
+                                        </svg>
+                                        ${totalWords.toLocaleString('id-ID')} kata
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    projectCard.addEventListener('click', () => {
+                        this.openReader(project);
+                    });
+                    
+                    projectsGrid.appendChild(projectCard);
+                });
+            }
+
+            // Membuka reader untuk project tertentu
+            openReader(project) {
+                this.currentProject = project;
+                this.currentChapterIndex = 0;
+                
+                document.getElementById('readerTitle').textContent = project.title;
+                this.renderChapters();
+                this.renderChapterContent();
+                
+                document.getElementById('readerModal').classList.add('active');
+            }
+
+            // Render daftar bab
+            renderChapters() {
+                const chaptersList = document.getElementById('chaptersList');
+                chaptersList.innerHTML = '';
+
+                if (!this.currentProject.chapters || this.currentProject.chapters.length === 0) {
+                    chaptersList.innerHTML = `
+                        <div style="padding: 20px; text-align: center; color: var(--text-light);">
+                            <p>Belum ada bab.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                this.currentProject.chapters.forEach((chapter, index) => {
+                    const chapterItem = document.createElement('div');
+                    chapterItem.className = `chapter-item ${index === this.currentChapterIndex ? 'active' : ''}`;
+                    chapterItem.innerHTML = `
+                        <div class="chapter-title">Bab ${index + 1}: ${chapter.title}</div>
+                        <div class="chapter-meta">${chapter.wordCount || 0} kata</div>
+                    `;
+                    
+                    chapterItem.addEventListener('click', () => {
+                        this.currentChapterIndex = index;
+                        this.renderChapters();
+                        this.renderChapterContent();
+                    });
+                    
+                    chaptersList.appendChild(chapterItem);
+                });
+            }
+
+            // Render konten bab
+            renderChapterContent() {
+                const readerArea = document.getElementById('readerArea');
+                
+                if (!this.currentProject.chapters || this.currentProject.chapters.length === 0) {
+                    readerArea.innerHTML = `
+                        <div class="novel-cover">
+                            <h1 class="novel-title">${this.currentProject.title}</h1>
+                            <div class="novel-author">oleh ${this.currentProject.author || 'Penulis'}</div>
+                            <div class="novel-meta">
+                                <span>${this.currentProject.genre || 'Fiksi'}</span>
+                                <span>${this.currentProject.chapters ? this.currentProject.chapters.length : 0} bab</span>
+                            </div>
+                        </div>
+                        <div style="text-align: center; padding: 40px 0;">
+                            <p>Novel ini belum memiliki konten bab.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const currentChapter = this.currentProject.chapters[this.currentChapterIndex];
+                
+                if (this.currentChapterIndex === 0) {
+                    readerArea.innerHTML = `
+                        <div class="novel-cover">
+                            <h1 class="novel-title">${this.currentProject.title}</h1>
+                            <div class="novel-author">oleh ${this.currentProject.author || 'Penulis'}</div>
+                            <div class="novel-meta">
+                                <span>${this.currentProject.genre || 'Fiksi'}</span>
+                                <span>${this.currentProject.chapters.length} bab</span>
+                            </div>
+                        </div>
+                        <div class="chapter-content">
+                            <h2>Bab ${this.currentChapterIndex + 1}: ${currentChapter.title}</h2>
+                            <div>${currentChapter.content || '<p>Bab ini belum memiliki konten.</p>'}</div>
+                        </div>
+                    `;
+                } else {
+                    readerArea.innerHTML = `
+                        <div class="chapter-content">
+                            <h2>Bab ${this.currentChapterIndex + 1}: ${currentChapter.title}</h2>
+                            <div>${currentChapter.content || '<p>Bab ini belum memiliki konten.</p>'}</div>
+                        </div>
+                    `;
+                }
+
+                // Update tombol navigasi
+                document.getElementById('prevChapter').disabled = this.currentChapterIndex === 0;
+                document.getElementById('nextChapter').disabled = this.currentChapterIndex === this.currentProject.chapters.length - 1;
+            }
+
+            // Navigasi ke bab sebelumnya
+            prevChapter() {
+                if (this.currentChapterIndex > 0) {
+                    this.currentChapterIndex--;
+                    this.renderChapters();
+                    this.renderChapterContent();
+                }
+            }
+
+            // Navigasi ke bab selanjutnya
+            nextChapter() {
+                if (this.currentChapterIndex < this.currentProject.chapters.length - 1) {
+                    this.currentChapterIndex++;
+                    this.renderChapters();
+                    this.renderChapterContent();
+                }
+            }
+
+            // Filter project berdasarkan pencarian
+            filterProjects(searchTerm) {
+                if (!searchTerm) {
+                    this.filteredProjects = [...this.projects];
+                } else {
+                    const term = searchTerm.toLowerCase();
+                    this.filteredProjects = this.projects.filter(project => 
+                        project.title.toLowerCase().includes(term) || 
+                        (project.author && project.author.toLowerCase().includes(term)) ||
+                        (project.genre && project.genre.toLowerCase().includes(term))
+                    );
+                }
+                this.renderProjects();
+            }
+        }
+
+        // Inisialisasi aplikasi
+        const libraryManager = new LibraryManager();
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Memuat project saat halaman dimuat
+            libraryManager.loadProjects();
+
+            // Event listener untuk pencarian
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                libraryManager.filterProjects(e.target.value);
+            });
+
+            // Event listener untuk navigasi bab
+            document.getElementById('prevChapter').addEventListener('click', () => {
+                libraryManager.prevChapter();
+            });
+
+            document.getElementById('nextChapter').addEventListener('click', () => {
+                libraryManager.nextChapter();
+            });
+
+            // Event listener untuk menutup reader
+            document.getElementById('readerClose').addEventListener('click', () => {
+                document.getElementById('readerModal').classList.remove('active');
+            });
+
+            document.getElementById('closeReader').addEventListener('click', () => {
+                document.getElementById('readerModal').classList.remove('active');
+            });
+
+            // Menutup modal saat mengklik di luar konten
+            document.getElementById('readerModal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('readerModal')) {
+                    document.getElementById('readerModal').classList.remove('active');
+                }
+            });
+
+            // Menutup modal dengan tombol Escape
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    document.getElementById('readerModal').classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
