@@ -1291,6 +1291,20 @@ async loadProjectsFromSupabase() {
         console.log('📥 Memuat projects dari Supabase...');
         const projects = await supabaseFetch('projects?order=created_at.desc');
         console.log('📥 Projects loaded:', projects);
+
+        // Normalisasi data: pastikan semua chapter memiliki properti 'direction'
+        if (Array.isArray(projects)) {
+            projects.forEach(project => {
+                if (project.chapters && Array.isArray(project.chapters)) {
+                    project.chapters.forEach(chapter => {
+                        if (!chapter.direction) {
+                            chapter.direction = 'ltr'; // Nilai default
+                        }
+                    });
+                }
+            });
+        }
+
         return Array.isArray(projects) ? projects : [];
     } catch (error) {
         console.error("❌ Gagal muat dari Supabase:", error);
@@ -1531,6 +1545,7 @@ async deleteProject(projectId) {
                 content: '',
                 status: 'draft',
                 wordCount: 0,
+                direction: 'ltr',
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }],
@@ -1875,6 +1890,14 @@ async deleteProject(projectId) {
                     </button>
                 </div>
                 <div class="toolbar-group">
+                    <button class="toolbar-btn" data-action="ltr" title="Teks Kiri ke Kanan">
+                      LTR
+                    </button>
+                    <button class="toolbar-btn" data-action="rtl" title="Teks Kanan ke Kiri">
+                      RTL
+                    </button>
+                </div>
+                <div class="toolbar-group">
                     <button class="toolbar-btn" data-action="ol" title="Ordered List">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="10" y1="6" x2="21" y2="6"></line>
@@ -1897,7 +1920,7 @@ async deleteProject(projectId) {
                     </button>
                 </div>
             </div>
-            <div class="editor-content" contenteditable="true" id="editorContent">${chapter.content || ''}</div>
+            <div class="editor-content" contenteditable="true" id="editorContent" dir="${chapter.direction || 'ltr'}">${chapter.content || ''}</div>
         `;
 
         const titleInput = document.getElementById('chapterTitleInput');
@@ -1906,6 +1929,8 @@ async deleteProject(projectId) {
         });
 
         const editorContent = document.getElementById('editorContent');
+        editorContent.style.direction = chapter.direction || 'ltr';
+        editorContent.style.textAlign = chapter.direction === 'rtl' ? 'right' : 'left';
         editorContent.addEventListener('input', () => {
             this.updateChapterContent(editorContent.innerHTML);
             this.updateWordCount();
@@ -1955,74 +1980,117 @@ async deleteProject(projectId) {
         this.updateWordCount();
     }
 
-    updateToolbarButtons(editor) {
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
+// PERBAIKAN: Update fungsi updateToolbarButtons
+updateToolbarButtons(editor) {
+    if (!editor) return;
+    
+    const buttons = {
+        'bold': document.querySelector('[data-action="bold"]'),
+        'italic': document.querySelector('[data-action="italic"]'),
+        'underline': document.querySelector('[data-action="underline"]'),
+        'h1': document.querySelector('[data-action="h1"]'),
+        'h2': document.querySelector('[data-action="h2"]'),
+        'h3': document.querySelector('[data-action="h3"]'),
+        'rtl': document.querySelector('[data-action="rtl"]'),
+        'ltr': document.querySelector('[data-action="ltr"]')
+    };
 
-        const parentElement = selection.anchorNode?.parentElement;
-        if (!parentElement) return;
+    // Reset semua button active state
+    Object.values(buttons).forEach(btn => {
+        if (btn) btn.classList.remove('active');
+    });
 
-        const buttons = {
-            'bold': document.querySelector('[data-action="bold"]'),
-            'italic': document.querySelector('[data-action="italic"]'),
-            'underline': document.querySelector('[data-action="underline"]'),
-            'h1': document.querySelector('[data-action="h1"]'),
-            'h2': document.querySelector('[data-action="h2"]'),
-            'h3': document.querySelector('[data-action="h3"]')
-        };
-
-        Object.values(buttons).forEach(btn => {
-            if (btn) btn.classList.remove('active');
-        });
-
-        const checkParent = (el) => {
-            if (!el || el === editor) return null;
-            
-            if (el.tagName === 'STRONG' || el.tagName === 'B') {
-                return 'bold';
-            } else if (el.tagName === 'EM' || el.tagName === 'I') {
-                return 'italic';
-            } else if (el.tagName === 'U') {
-                return 'underline';
-            } else if (el.tagName === 'H1') {
-                return 'h1';
-            } else if (el.tagName === 'H2') {
-                return 'h2';
-            } else if (el.tagName === 'H3') {
-                return 'h3';
-            } else {
-                return checkParent(el.parentElement);
-            }
-        };
-
-        const format = checkParent(selection.anchorNode?.parentElement);
-        if (format && buttons[format]) {
-            buttons[format].classList.add('active');
-        }
+    // Check text direction
+    const currentDirection = editor.style.direction || editor.dir || 'ltr';
+    if (currentDirection === 'rtl' && buttons.rtl) {
+        buttons.rtl.classList.add('active');
+    } else if (currentDirection === 'ltr' && buttons.ltr) {
+        buttons.ltr.classList.add('active');
     }
 
-    execCommand(action, editor) {
-        let command = action;
-        let value = null;
+    // Check formatting (existing code)
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
 
-        switch (action) {
-            case 'h1':
-            case 'h2':
-            case 'h3':
-                command = 'formatBlock';
-                value = `<${action}>`;
-                break;
-            case 'ol':
-                command = 'insertOrderedList';
-                break;
-            case 'ul':
-                command = 'insertUnorderedList';
-                break;
+    const parentElement = selection.anchorNode?.parentElement;
+    if (!parentElement) return;
+
+    const checkParent = (el) => {
+        if (!el || el === editor) return null;
+        
+        if (el.tagName === 'STRONG' || el.tagName === 'B') {
+            return 'bold';
+        } else if (el.tagName === 'EM' || el.tagName === 'I') {
+            return 'italic';
+        } else if (el.tagName === 'U') {
+            return 'underline';
+        } else if (el.tagName === 'H1') {
+            return 'h1';
+        } else if (el.tagName === 'H2') {
+            return 'h2';
+        } else if (el.tagName === 'H3') {
+            return 'h3';
+        } else {
+            return checkParent(el.parentElement);
         }
+    };
 
+    const format = checkParent(parentElement);
+    if (format && buttons[format]) {
+        buttons[format].classList.add('active');
+    }
+}
+
+// PERBAIKAN: Update fungsi execCommand untuk RTL/LTR
+execCommand(action, editor) {
+    let command = action;
+    let value = null;
+
+    switch (action) {
+        case 'h1':
+        case 'h2':
+        case 'h3':
+            command = 'formatBlock';
+            value = `<${action}>`;
+            break;
+        case 'ol':
+            command = 'insertOrderedList';
+            break;
+        case 'ul':
+            command = 'insertUnorderedList';
+            break;
+        case 'rtl':
+            // Pastikan menyimpan perubahan direction
+            editor.style.direction = 'rtl';
+            editor.style.textAlign = 'right';
+            this.saveDirectionChange('rtl');
+            return; // Hentikan eksekusi, tidak perlu execCommand
+        case 'ltr':
+            editor.style.direction = 'ltr';
+            editor.style.textAlign = 'left';
+            this.saveDirectionChange('ltr');
+            return; // Hentikan eksekusi
+    }
+
+    if (command) {
         document.execCommand(command, false, value);
-        editor.focus();
     }
+    editor.focus();
+}
+
+// Tambahkan method baru untuk menyimpan perubahan direction
+saveDirectionChange(direction) {
+    const project = this.getCurrentProject();
+    const chapter = this.getCurrentChapter();
+    if (project && chapter) {
+        chapter.direction = direction;
+        chapter.updatedAt = new Date().toISOString();
+        this.saveProject(project);
+        
+        // Update toolbar button states
+        this.updateToolbarButtons(document.getElementById('editorContent'));
+    }
+}
 
     updateChapterTitle(title) {
         const project = this.getCurrentProject();
@@ -2049,6 +2117,10 @@ async deleteProject(projectId) {
         this.autoSaveTimer = setTimeout(async () => {
             chapter.content = content;
             chapter.updatedAt = new Date().toISOString();
+            const editorContent = document.getElementById('editorContent');
+            if (editorContent) {
+                chapter.direction = editorContent.dir || 'ltr';
+            }
             await this.saveProject(project);
             this.updateSaveStatus('Tersimpan');
         }, 1000);
@@ -2091,6 +2163,7 @@ async deleteProject(projectId) {
                 content: '',
                 status: 'draft',
                 wordCount: 0,
+                direction: 'ltr',
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
@@ -2470,6 +2543,7 @@ async deleteProject(projectId) {
                     summary,
                     content: '',
                     wordCount: 0,
+                    direction: 'ltr',
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                     status: 'draft'
@@ -2592,6 +2666,20 @@ appState.checkCloudConnection();
 setInterval(() => {
     appState.checkCloudConnection();
 }, 300000);
+
+// Di dalam event listeners untuk toolbar buttons
+toolbarButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        const action = button.getAttribute('data-action');
+        if (action === 'ltr' || action === 'rtl') {
+            this.execCommand(action, editorContent);
+        } else {
+            this.execCommand(action, editorContent);
+            this.updateToolbarButtons(editorContent);
+        }
+    });
+});
+
 
             // Close modals when clicking outside
             document.querySelectorAll('.modal-overlay').forEach(modal => {
