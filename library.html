@@ -584,6 +584,43 @@
                 line-height: 1.6;
             }
         }
+
+/* Tambahkan di section CSS */
+.chapter-content[dir="rtl"] {
+    direction: rtl;
+    text-align: right;
+}
+
+.chapter-content[dir="ltr"] {
+    direction: ltr;
+    text-align: left;
+}
+
+/* Style khusus untuk RTL */
+.chapter-content[dir="rtl"] p {
+    text-align: right;
+}
+
+.chapter-content[dir="rtl"] ol,
+.chapter-content[dir="rtl"] ul {
+    padding-right: 2em;
+    padding-left: 0;
+}
+
+/* Indicator untuk chapter dengan direction RTL */
+.chapter-item.rtl-chapter .chapter-title::after {
+    content: " ◀";
+    color: var(--primary);
+    font-size: 12px;
+    margin-right: 5px;
+}
+
+.chapter-item.ltr-chapter .chapter-title::after {
+    content: " ▶";
+    color: var(--primary);
+    font-size: 12px;
+    margin-left: 5px;
+}
     </style>
 </head>
 <body>
@@ -715,29 +752,41 @@
                 this.filteredProjects = [];
             }
 
-            // Memuat semua project dari Supabase
-            async loadProjects() {
-                try {
-                    document.getElementById('loadingState').style.display = 'flex';
-                    document.getElementById('emptyState').style.display = 'none';
-                    
-                    const projects = await supabaseFetch('projects?order=created_at.desc');
-                    this.projects = Array.isArray(projects) ? projects : [];
-                    this.filteredProjects = [...this.projects];
-                    
-                    this.renderProjects();
-                    
-                    document.getElementById('loadingState').style.display = 'none';
-                    
-                    if (this.projects.length === 0) {
-                        document.getElementById('emptyState').style.display = 'flex';
+// Memuat semua project dari Supabase dengan normalisasi data RTL/LTR
+async loadProjects() {
+    try {
+        document.getElementById('loadingState').style.display = 'flex';
+        document.getElementById('emptyState').style.display = 'none';
+        
+        const projects = await supabaseFetch('projects?order=created_at.desc');
+        this.projects = Array.isArray(projects) ? projects : [];
+        
+        // Normalisasi data - pastikan semua chapter memiliki direction
+        this.projects.forEach(project => {
+            if (project.chapters && Array.isArray(project.chapters)) {
+                project.chapters.forEach(chapter => {
+                    if (!chapter.direction) {
+                        chapter.direction = 'ltr'; // Default value
                     }
-                } catch (error) {
-                    console.error('Gagal memuat project:', error);
-                    document.getElementById('loadingState').style.display = 'none';
-                    document.getElementById('emptyState').style.display = 'flex';
-                }
+                });
             }
+        });
+        
+        this.filteredProjects = [...this.projects];
+        
+        this.renderProjects();
+        
+        document.getElementById('loadingState').style.display = 'none';
+        
+        if (this.projects.length === 0) {
+            document.getElementById('emptyState').style.display = 'flex';
+        }
+    } catch (error) {
+        console.error('Gagal memuat project:', error);
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'flex';
+    }
+}
 
             // Render daftar project
             renderProjects() {
@@ -801,88 +850,108 @@
             }
 
             // Render daftar bab
-            renderChapters() {
-                const chaptersList = document.getElementById('chaptersList');
-                chaptersList.innerHTML = '';
+// Render daftar bab dengan indicator RTL/LTR
+renderChapters() {
+    const chaptersList = document.getElementById('chaptersList');
+    chaptersList.innerHTML = '';
 
-                if (!this.currentProject.chapters || this.currentProject.chapters.length === 0) {
-                    chaptersList.innerHTML = `
-                        <div style="padding: 20px; text-align: center; color: var(--text-light);">
-                            <p>Belum ada bab.</p>
-                        </div>
-                    `;
-                    return;
-                }
+    if (!this.currentProject.chapters || this.currentProject.chapters.length === 0) {
+        chaptersList.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: var(--text-light);">
+                <p>Belum ada bab.</p>
+            </div>
+        `;
+        return;
+    }
 
-                this.currentProject.chapters.forEach((chapter, index) => {
-                    const chapterItem = document.createElement('div');
-                    chapterItem.className = `chapter-item ${index === this.currentChapterIndex ? 'active' : ''}`;
-                    chapterItem.innerHTML = `
-                        <div class="chapter-title">Bab ${index + 1}: ${chapter.title}</div>
-                        <div class="chapter-meta">${chapter.wordCount || 0} kata</div>
-                    `;
-                    
-                    chapterItem.addEventListener('click', () => {
-                        this.currentChapterIndex = index;
-                        this.renderChapters();
-                        this.renderChapterContent();
-                    });
-                    
-                    chaptersList.appendChild(chapterItem);
-                });
-            }
+    this.currentProject.chapters.forEach((chapter, index) => {
+        const chapterDirection = chapter.direction || 'ltr';
+        const directionClass = chapterDirection === 'rtl' ? 'rtl-chapter' : 'ltr-chapter';
+        const directionIcon = chapterDirection === 'rtl' ? '◀' : '▶';
+        
+        const chapterItem = document.createElement('div');
+        chapterItem.className = `chapter-item ${directionClass} ${index === this.currentChapterIndex ? 'active' : ''}`;
+        chapterItem.innerHTML = `
+            <div class="chapter-title">
+                Bab ${index + 1}: ${chapter.title}
+                <span style="font-size: 10px; color: ${chapterDirection === 'rtl' ? '#d97706' : '#1d4ed8'}; margin-left: 5px;">
+                    ${directionIcon}
+                </span>
+            </div>
+            <div class="chapter-meta">${chapter.wordCount || 0} kata • ${chapterDirection.toUpperCase()}</div>
+        `;
+        
+        chapterItem.addEventListener('click', () => {
+            this.currentChapterIndex = index;
+            this.renderChapters();
+            this.renderChapterContent();
+        });
+        
+        chaptersList.appendChild(chapterItem);
+    });
+}
 
             // Render konten bab
-            renderChapterContent() {
-                const readerArea = document.getElementById('readerArea');
-                
-                if (!this.currentProject.chapters || this.currentProject.chapters.length === 0) {
-                    readerArea.innerHTML = `
-                        <div class="novel-cover">
-                            <h1 class="novel-title">${this.currentProject.title}</h1>
-                            <div class="novel-author">oleh ${this.currentProject.author || 'Penulis'}</div>
-                            <div class="novel-meta">
-                                <span>${this.currentProject.genre || 'Fiksi'}</span>
-                                <span>${this.currentProject.chapters ? this.currentProject.chapters.length : 0} bab</span>
-                            </div>
-                        </div>
-                        <div style="text-align: center; padding: 40px 0;">
-                            <p>Novel ini belum memiliki konten bab.</p>
-                        </div>
-                    `;
-                    return;
-                }
+// Render konten bab dengan support RTL/LTR
+renderChapterContent() {
+    const readerArea = document.getElementById('readerArea');
+    
+    if (!this.currentProject.chapters || this.currentProject.chapters.length === 0) {
+        readerArea.innerHTML = `
+            <div class="novel-cover">
+                <h1 class="novel-title">${this.currentProject.title}</h1>
+                <div class="novel-author">oleh ${this.currentProject.author || 'Penulis'}</div>
+                <div class="novel-meta">
+                    <span>${this.currentProject.genre || 'Fiksi'}</span>
+                    <span>${this.currentProject.chapters ? this.currentProject.chapters.length : 0} bab</span>
+                </div>
+            </div>
+            <div style="text-align: center; padding: 40px 0;">
+                <p>Novel ini belum memiliki konten bab.</p>
+            </div>
+        `;
+        return;
+    }
 
-                const currentChapter = this.currentProject.chapters[this.currentChapterIndex];
-                
-                if (this.currentChapterIndex === 0) {
-                    readerArea.innerHTML = `
-                        <div class="novel-cover">
-                            <h1 class="novel-title">${this.currentProject.title}</h1>
-                            <div class="novel-author">oleh ${this.currentProject.author || 'Penulis'}</div>
-                            <div class="novel-meta">
-                                <span>${this.currentProject.genre || 'Fiksi'}</span>
-                                <span>${this.currentProject.chapters.length} bab</span>
-                            </div>
-                        </div>
-                        <div class="chapter-content">
-                            <h2>Bab ${this.currentChapterIndex + 1}: ${currentChapter.title}</h2>
-                            <div>${currentChapter.content || '<p>Bab ini belum memiliki konten.</p>'}</div>
-                        </div>
-                    `;
-                } else {
-                    readerArea.innerHTML = `
-                        <div class="chapter-content">
-                            <h2>Bab ${this.currentChapterIndex + 1}: ${currentChapter.title}</h2>
-                            <div>${currentChapter.content || '<p>Bab ini belum memiliki konten.</p>'}</div>
-                        </div>
-                    `;
-                }
+    const currentChapter = this.currentProject.chapters[this.currentChapterIndex];
+    
+    // Dapatkan direction dari chapter, default 'ltr'
+    const chapterDirection = currentChapter.direction || 'ltr';
+    const textAlign = chapterDirection === 'rtl' ? 'right' : 'left';
+    
+    // Tambahkan badge direction di judul
+    const directionBadge = chapterDirection === 'rtl' 
+        ? '<span style="font-size: 12px; background: #fef3c7; color: #d97706; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">RTL</span>'
+        : '<span style="font-size: 12px; background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">LTR</span>';
 
-                // Update tombol navigasi
-                document.getElementById('prevChapter').disabled = this.currentChapterIndex === 0;
-                document.getElementById('nextChapter').disabled = this.currentChapterIndex === this.currentProject.chapters.length - 1;
-            }
+    if (this.currentChapterIndex === 0) {
+        readerArea.innerHTML = `
+            <div class="novel-cover">
+                <h1 class="novel-title">${this.currentProject.title}</h1>
+                <div class="novel-author">oleh ${this.currentProject.author || 'Penulis'}</div>
+                <div class="novel-meta">
+                    <span>${this.currentProject.genre || 'Fiksi'}</span>
+                    <span>${this.currentProject.chapters.length} bab</span>
+                </div>
+            </div>
+            <div class="chapter-content" dir="${chapterDirection}" style="text-align: ${textAlign};">
+                <h2>Bab ${this.currentChapterIndex + 1}: ${currentChapter.title} ${directionBadge}</h2>
+                <div>${currentChapter.content || '<p>Bab ini belum memiliki konten.</p>'}</div>
+            </div>
+        `;
+    } else {
+        readerArea.innerHTML = `
+            <div class="chapter-content" dir="${chapterDirection}" style="text-align: ${textAlign};">
+                <h2>Bab ${this.currentChapterIndex + 1}: ${currentChapter.title} ${directionBadge}</h2>
+                <div>${currentChapter.content || '<p>Bab ini belum memiliki konten.</p>'}</div>
+            </div>
+        `;
+    }
+
+    // Update tombol navigasi
+    document.getElementById('prevChapter').disabled = this.currentChapterIndex === 0;
+    document.getElementById('nextChapter').disabled = this.currentChapterIndex === this.currentProject.chapters.length - 1;
+}
 
             // Navigasi ke bab sebelumnya
             prevChapter() {
