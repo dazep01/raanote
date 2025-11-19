@@ -124,7 +124,7 @@
         }
 
         .project-cover {
-            height: 180px;
+            aspect-ratio: 3 / 5; /* Tambahkan ini: rasio lebar:tinggi */
             background: linear-gradient(135deg, var(--primary-light), var(--primary));
             display: flex;
             align-items: center;
@@ -132,6 +132,34 @@
             color: white;
             font-size: 48px;
             font-weight: 700;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .project-cover.with-image {
+            background: var(--surface);
+        }
+
+        .project-cover.with-image .cover-image {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+            transition: var(--transition);
+        }
+
+        .project-card:hover .project-cover.with-image .cover-image {
+            transform: scale(1.05);
+        }
+
+        .project-cover .cover-fallback {
+            z-index: 1;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .project-cover.with-image .cover-fallback {
+            display: none;
         }
 
         .project-info {
@@ -521,10 +549,31 @@
             100% { transform: rotate(360deg); }
         }
 
+        /* Direction styles */
+        .chapter-content[dir="rtl"] {
+            direction: rtl;
+            text-align: right;
+        }
+
+        .chapter-content[dir="ltr"] {
+            direction: ltr;
+            text-align: left;
+        }
+
+        .chapter-content[dir="rtl"] p {
+            text-align: right;
+        }
+
+        .chapter-content[dir="rtl"] ol,
+        .chapter-content[dir="rtl"] ul {
+            padding-right: 2em;
+            padding-left: 0;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .projects-grid {
-                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+                grid-template-columns: repeat(auto-fill, minmax(2, 1fr));
             }
             
             .reader-modal {
@@ -564,7 +613,7 @@
             }
             
             .projects-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
             }
             
             .reader-header {
@@ -584,43 +633,6 @@
                 line-height: 1.6;
             }
         }
-
-/* Tambahkan di section CSS */
-.chapter-content[dir="rtl"] {
-    direction: rtl;
-    text-align: right;
-}
-
-.chapter-content[dir="ltr"] {
-    direction: ltr;
-    text-align: left;
-}
-
-/* Style khusus untuk RTL */
-.chapter-content[dir="rtl"] p {
-    text-align: right;
-}
-
-.chapter-content[dir="rtl"] ol,
-.chapter-content[dir="rtl"] ul {
-    padding-right: 2em;
-    padding-left: 0;
-}
-
-/* Indicator untuk chapter dengan direction RTL */
-.chapter-item.rtl-chapter .chapter-title::after {
-    content: " ◀";
-    color: var(--primary);
-    font-size: 12px;
-    margin-right: 5px;
-}
-
-.chapter-item.ltr-chapter .chapter-title::after {
-    content: " ▶";
-    color: var(--primary);
-    font-size: 12px;
-    margin-left: 5px;
-}
     </style>
 </head>
 <body>
@@ -708,6 +720,9 @@
         // Konfigurasi Supabase
         const SUPABASE_URL = 'https://cnxxewfdtwbembrwnzho.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNueHhld2ZkdHdiZW1icnduemhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1NTgwNTcsImV4cCI6MjA3NDEzNDA1N30.e2CJ_sO4OKcbTaK9bls0ZJIWv4iZdRN9tc4tZW9ra5I';
+        
+        // Konfigurasi URL cover GitHub
+        const GITHUB_COVERS_BASE_URL = 'https://raw.githubusercontent.com/dazep01/raanote/main/assets/covers';
 
         // Fungsi untuk mengambil data dari Supabase
         async function supabaseFetch(endpoint, options = {}) {
@@ -752,43 +767,95 @@
                 this.filteredProjects = [];
             }
 
-// Memuat semua project dari Supabase dengan normalisasi data RTL/LTR
-async loadProjects() {
-    try {
-        document.getElementById('loadingState').style.display = 'flex';
-        document.getElementById('emptyState').style.display = 'none';
-        
-        const projects = await supabaseFetch('projects?order=created_at.desc');
-        this.projects = Array.isArray(projects) ? projects : [];
-        
-        // Normalisasi data - pastikan semua chapter memiliki direction
-        this.projects.forEach(project => {
-            if (project.chapters && Array.isArray(project.chapters)) {
-                project.chapters.forEach(chapter => {
-                    if (!chapter.direction) {
-                        chapter.direction = 'ltr'; // Default value
+            // Memuat semua project dari Supabase
+            async loadProjects() {
+                try {
+                    document.getElementById('loadingState').style.display = 'flex';
+                    document.getElementById('emptyState').style.display = 'none';
+                    
+                    // Load projects dari Supabase
+                    const projects = await supabaseFetch('projects?order=created_at.desc');
+                    this.projects = Array.isArray(projects) ? projects : [];
+                    
+                    // Normalisasi data - pastikan semua chapter memiliki direction
+                    this.projects.forEach(project => {
+                        if (project.chapters && Array.isArray(project.chapters)) {
+                            project.chapters.forEach(chapter => {
+                                if (!chapter.direction) {
+                                    chapter.direction = 'ltr';
+                                }
+                            });
+                        }
+                    });
+                    
+                    this.filteredProjects = [...this.projects];
+                    this.renderProjects();
+                    
+                    document.getElementById('loadingState').style.display = 'none';
+                    
+                    if (this.projects.length === 0) {
+                        document.getElementById('emptyState').style.display = 'flex';
                     }
-                });
+                } catch (error) {
+                    console.error('Gagal memuat project:', error);
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('emptyState').style.display = 'flex';
+                }
             }
-        });
-        
-        this.filteredProjects = [...this.projects];
-        
-        this.renderProjects();
-        
-        document.getElementById('loadingState').style.display = 'none';
-        
-        if (this.projects.length === 0) {
-            document.getElementById('emptyState').style.display = 'flex';
-        }
-    } catch (error) {
-        console.error('Gagal memuat project:', error);
-        document.getElementById('loadingState').style.display = 'none';
-        document.getElementById('emptyState').style.display = 'flex';
-    }
-}
 
-            // Render daftar project
+            // Fungsi untuk mendapatkan cover URL berdasarkan project ID
+            getCoverUrl(project) {
+                if (!project.id) {
+                    return this.generateFallbackCover(project);
+                }
+
+                // Coba berbagai format gambar yang mungkin
+                const extensions = ['.jpg', '.jpeg', '.png', '.webp'];
+                
+                // Untuk development, kita akan langsung generate URL tanpa perlu API call
+                // Sistem akan mencoba load gambar dan fallback jika tidak ada
+                return `${GITHUB_COVERS_BASE_URL}/${project.id}.png`;
+            }
+
+            // Generate fallback cover yang konsisten berdasarkan judul
+            generateFallbackCover(project) {
+                const colors = [
+                    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+                    'linear-gradient(135deg, #d2691e 0%, #ffd700 100%)',
+                    'linear-gradient(135deg, #8b4513 0%, #daa520 100%)',
+                    'linear-gradient(135deg, #2c5530 0%, #4a7c59 100%)',
+                    'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
+                    'linear-gradient(135deg, #7e22ce 0%, #c084fc 100%)'
+                ];
+                
+                // Generate consistent color berdasarkan hash judul
+                const hash = project.title.split('').reduce((a, b) => {
+                    a = ((a << 5) - a) + b.charCodeAt(0);
+                    return a & a;
+                }, 0);
+                
+                return colors[Math.abs(hash) % colors.length];
+            }
+
+            // Handler untuk error loading gambar
+            handleCoverError(imgElement, fallbackStyle) {
+                imgElement.style.display = 'none';
+                const coverDiv = imgElement.parentElement;
+                coverDiv.classList.remove('with-image');
+                coverDiv.style.background = fallbackStyle;
+                
+                // Tampilkan fallback text
+                const fallbackText = coverDiv.querySelector('.cover-fallback');
+                if (fallbackText) {
+                    fallbackText.style.display = 'flex';
+                }
+            }
+
+            // Render daftar project dengan cover
             renderProjects() {
                 const projectsGrid = document.getElementById('projectsGrid');
                 projectsGrid.innerHTML = '';
@@ -798,17 +865,35 @@ async loadProjects() {
                         project.chapters.reduce((sum, chapter) => sum + (chapter.wordCount || 0), 0) : 0;
                     const chapterCount = project.chapters ? project.chapters.length : 0;
                     
+                    const coverUrl = this.getCoverUrl(project);
+                    const hasCustomCover = typeof coverUrl === 'string' && coverUrl.startsWith('http');
+                    const fallbackStyle = this.generateFallbackCover(project);
+                    
+                    // Logika pemotongan judul
+                    const truncatedTitle = project.title.length > 15 
+                                           ? project.title.substring(0, 15) + '...' 
+                                           : project.title;
+                    
                     const projectCard = document.createElement('div');
                     projectCard.className = 'project-card';
                     projectCard.innerHTML = `
-                        <div class="project-cover">
-                            ${project.title.charAt(0).toUpperCase()}
+                        <div class="project-cover ${hasCustomCover ? 'with-image' : ''}" 
+                             style="${!hasCustomCover ? `background: ${fallbackStyle}` : ''}">
+                            ${hasCustomCover ? 
+                                `<img src="${coverUrl}" alt="${project.title}" class="cover-image" 
+                                     onerror="library.handleCoverError(this, '${fallbackStyle.replace(/'/g, "\\'")}')">
+                                 <div class="cover-fallback">${project.title.charAt(0).toUpperCase()}</div>` 
+                                : 
+                                `<div class="cover-fallback">${project.title.charAt(0).toUpperCase()}</div>`
+                            }
                         </div>
                         <div class="project-info">
-                            <h3 class="project-title">${project.title}</h3>
+                            <h3 class="project-title">${truncatedTitle}</h3>
                             <div class="project-author">oleh ${project.author || 'Penulis'}</div>
                             <div class="project-meta">
-                                <span>${project.genre || 'Fiksi'}</span>
+                                <div>${project.genre || 'Fiksi'}</div>
+                            </div>
+                            <div class="project-meta">
                                 <div class="project-stats">
                                     <span class="stat">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -849,109 +934,107 @@ async loadProjects() {
                 document.getElementById('readerModal').classList.add('active');
             }
 
-            // Render daftar bab
-// Render daftar bab dengan indicator RTL/LTR
-renderChapters() {
-    const chaptersList = document.getElementById('chaptersList');
-    chaptersList.innerHTML = '';
+            // Render daftar bab dengan indicator RTL/LTR
+            renderChapters() {
+                const chaptersList = document.getElementById('chaptersList');
+                chaptersList.innerHTML = '';
 
-    if (!this.currentProject.chapters || this.currentProject.chapters.length === 0) {
-        chaptersList.innerHTML = `
-            <div style="padding: 20px; text-align: center; color: var(--text-light);">
-                <p>Belum ada bab.</p>
-            </div>
-        `;
-        return;
-    }
+                if (!this.currentProject.chapters || this.currentProject.chapters.length === 0) {
+                    chaptersList.innerHTML = `
+                        <div style="padding: 20px; text-align: center; color: var(--text-light);">
+                            <p>Belum ada bab.</p>
+                        </div>
+                    `;
+                    return;
+                }
 
-    this.currentProject.chapters.forEach((chapter, index) => {
-        const chapterDirection = chapter.direction || 'ltr';
-        const directionClass = chapterDirection === 'rtl' ? 'rtl-chapter' : 'ltr-chapter';
-        const directionIcon = chapterDirection === 'rtl' ? '◀' : '▶';
-        
-        const chapterItem = document.createElement('div');
-        chapterItem.className = `chapter-item ${directionClass} ${index === this.currentChapterIndex ? 'active' : ''}`;
-        chapterItem.innerHTML = `
-            <div class="chapter-title">
-                Bab ${index + 1}: ${chapter.title}
-                <span style="font-size: 10px; color: ${chapterDirection === 'rtl' ? '#d97706' : '#1d4ed8'}; margin-left: 5px;">
-                    ${directionIcon}
-                </span>
-            </div>
-            <div class="chapter-meta">${chapter.wordCount || 0} kata • ${chapterDirection.toUpperCase()}</div>
-        `;
-        
-        chapterItem.addEventListener('click', () => {
-            this.currentChapterIndex = index;
-            this.renderChapters();
-            this.renderChapterContent();
-        });
-        
-        chaptersList.appendChild(chapterItem);
-    });
-}
+                this.currentProject.chapters.forEach((chapter, index) => {
+                    const chapterDirection = chapter.direction || 'ltr';
+                    const directionClass = chapterDirection === 'rtl' ? 'rtl-chapter' : 'ltr-chapter';
+                    const directionIcon = chapterDirection === 'rtl' ? '◀' : '▶';
+                    
+                    const chapterItem = document.createElement('div');
+                    chapterItem.className = `chapter-item ${directionClass} ${index === this.currentChapterIndex ? 'active' : ''}`;
+                    chapterItem.innerHTML = `
+                        <div class="chapter-title">
+                            Bab ${index + 1}: ${chapter.title}
+                            <span style="font-size: 10px; color: ${chapterDirection === 'rtl' ? '#d97706' : '#1d4ed8'}; margin-left: 5px;">
+                                ${directionIcon}
+                            </span>
+                        </div>
+                        <div class="chapter-meta">${chapter.wordCount || 0} kata • ${chapterDirection.toUpperCase()}</div>
+                    `;
+                    
+                    chapterItem.addEventListener('click', () => {
+                        this.currentChapterIndex = index;
+                        this.renderChapters();
+                        this.renderChapterContent();
+                    });
+                    
+                    chaptersList.appendChild(chapterItem);
+                });
+            }
 
-            // Render konten bab
-// Render konten bab dengan support RTL/LTR
-renderChapterContent() {
-    const readerArea = document.getElementById('readerArea');
-    
-    if (!this.currentProject.chapters || this.currentProject.chapters.length === 0) {
-        readerArea.innerHTML = `
-            <div class="novel-cover">
-                <h1 class="novel-title">${this.currentProject.title}</h1>
-                <div class="novel-author">oleh ${this.currentProject.author || 'Penulis'}</div>
-                <div class="novel-meta">
-                    <span>${this.currentProject.genre || 'Fiksi'}</span>
-                    <span>${this.currentProject.chapters ? this.currentProject.chapters.length : 0} bab</span>
-                </div>
-            </div>
-            <div style="text-align: center; padding: 40px 0;">
-                <p>Novel ini belum memiliki konten bab.</p>
-            </div>
-        `;
-        return;
-    }
+            // Render konten bab dengan support RTL/LTR
+            renderChapterContent() {
+                const readerArea = document.getElementById('readerArea');
+                
+                if (!this.currentProject.chapters || this.currentProject.chapters.length === 0) {
+                    readerArea.innerHTML = `
+                        <div class="novel-cover">
+                            <h1 class="novel-title">${this.currentProject.title}</h1>
+                            <div class="novel-author">oleh ${this.currentProject.author || 'Penulis'}</div>
+                            <div class="novel-meta">
+                                <span>${this.currentProject.genre || 'Fiksi'}</span>
+                                <span>${this.currentProject.chapters ? this.currentProject.chapters.length : 0} bab</span>
+                            </div>
+                        </div>
+                        <div style="text-align: center; padding: 40px 0;">
+                            <p>Novel ini belum memiliki konten bab.</p>
+                        </div>
+                    `;
+                    return;
+                }
 
-    const currentChapter = this.currentProject.chapters[this.currentChapterIndex];
-    
-    // Dapatkan direction dari chapter, default 'ltr'
-    const chapterDirection = currentChapter.direction || 'ltr';
-    const textAlign = chapterDirection === 'rtl' ? 'right' : 'left';
-    
-    // Tambahkan badge direction di judul
-    const directionBadge = chapterDirection === 'rtl' 
-        ? '<span style="font-size: 12px; background: #fef3c7; color: #d97706; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">RTL</span>'
-        : '<span style="font-size: 12px; background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">LTR</span>';
+                const currentChapter = this.currentProject.chapters[this.currentChapterIndex];
+                
+                // Dapatkan direction dari chapter, default 'ltr'
+                const chapterDirection = currentChapter.direction || 'ltr';
+                const textAlign = chapterDirection === 'rtl' ? 'right' : 'left';
+                
+                // Tambahkan badge direction di judul
+                const directionBadge = chapterDirection === 'rtl' 
+                    ? '<span style="font-size: 12px; background: #fef3c7; color: #d97706; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">RTL</span>'
+                    : '<span style="font-size: 12px; background: #dbeafe; color: #1d4ed8; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">LTR</span>';
 
-    if (this.currentChapterIndex === 0) {
-        readerArea.innerHTML = `
-            <div class="novel-cover">
-                <h1 class="novel-title">${this.currentProject.title}</h1>
-                <div class="novel-author">oleh ${this.currentProject.author || 'Penulis'}</div>
-                <div class="novel-meta">
-                    <span>${this.currentProject.genre || 'Fiksi'}</span>
-                    <span>${this.currentProject.chapters.length} bab</span>
-                </div>
-            </div>
-            <div class="chapter-content" dir="${chapterDirection}" style="text-align: ${textAlign};">
-                <h2>Bab ${this.currentChapterIndex + 1}: ${currentChapter.title} ${directionBadge}</h2>
-                <div>${currentChapter.content || '<p>Bab ini belum memiliki konten.</p>'}</div>
-            </div>
-        `;
-    } else {
-        readerArea.innerHTML = `
-            <div class="chapter-content" dir="${chapterDirection}" style="text-align: ${textAlign};">
-                <h2>Bab ${this.currentChapterIndex + 1}: ${currentChapter.title} ${directionBadge}</h2>
-                <div>${currentChapter.content || '<p>Bab ini belum memiliki konten.</p>'}</div>
-            </div>
-        `;
-    }
+                if (this.currentChapterIndex === 0) {
+                    readerArea.innerHTML = `
+                        <div class="novel-cover">
+                            <h1 class="novel-title">${this.currentProject.title}</h1>
+                            <div class="novel-author">oleh ${this.currentProject.author || 'Penulis'}</div>
+                            <div class="novel-meta">
+                                <span>${this.currentProject.genre || 'Fiksi'}</span>
+                                <span>${this.currentProject.chapters.length} bab</span>
+                            </div>
+                        </div>
+                        <div class="chapter-content" dir="${chapterDirection}" style="text-align: ${textAlign};">
+                            <h2>Bab ${this.currentChapterIndex + 1}: ${currentChapter.title} ${directionBadge}</h2>
+                            <div>${currentChapter.content || '<p>Bab ini belum memiliki konten.</p>'}</div>
+                        </div>
+                    `;
+                } else {
+                    readerArea.innerHTML = `
+                        <div class="chapter-content" dir="${chapterDirection}" style="text-align: ${textAlign};">
+                            <h2>Bab ${this.currentChapterIndex + 1}: ${currentChapter.title} ${directionBadge}</h2>
+                            <div>${currentChapter.content || '<p>Bab ini belum memiliki konten.</p>'}</div>
+                        </div>
+                    `;
+                }
 
-    // Update tombol navigasi
-    document.getElementById('prevChapter').disabled = this.currentChapterIndex === 0;
-    document.getElementById('nextChapter').disabled = this.currentChapterIndex === this.currentProject.chapters.length - 1;
-}
+                // Update tombol navigasi
+                document.getElementById('prevChapter').disabled = this.currentChapterIndex === 0;
+                document.getElementById('nextChapter').disabled = this.currentChapterIndex === this.currentProject.chapters.length - 1;
+            }
 
             // Navigasi ke bab sebelumnya
             prevChapter() {
@@ -964,7 +1047,7 @@ renderChapterContent() {
 
             // Navigasi ke bab selanjutnya
             nextChapter() {
-                if (this.currentChapterIndex < this.currentProject.chapters.length - 1) {
+                if (this.currentProject.chapters && this.currentChapterIndex < this.currentProject.chapters.length - 1) {
                     this.currentChapterIndex++;
                     this.renderChapters();
                     this.renderChapterContent();
@@ -985,28 +1068,33 @@ renderChapterContent() {
                 }
                 this.renderProjects();
             }
+
+            // Refresh library (bisa dipanggil dari luar jika needed)
+            refresh() {
+                this.loadProjects();
+            }
         }
 
         // Inisialisasi aplikasi
-        const libraryManager = new LibraryManager();
+        const library = new LibraryManager();
 
         // Event listeners
         document.addEventListener('DOMContentLoaded', () => {
             // Memuat project saat halaman dimuat
-            libraryManager.loadProjects();
+            library.loadProjects();
 
             // Event listener untuk pencarian
             document.getElementById('searchInput').addEventListener('input', (e) => {
-                libraryManager.filterProjects(e.target.value);
+                library.filterProjects(e.target.value);
             });
 
             // Event listener untuk navigasi bab
             document.getElementById('prevChapter').addEventListener('click', () => {
-                libraryManager.prevChapter();
+                library.prevChapter();
             });
 
             document.getElementById('nextChapter').addEventListener('click', () => {
-                libraryManager.nextChapter();
+                library.nextChapter();
             });
 
             // Event listener untuk menutup reader
